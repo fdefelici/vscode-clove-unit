@@ -1,29 +1,37 @@
-import { Console, debug } from 'console';
+//import { Console, debug } from 'console';
 import * as vscode from 'vscode';
-import { getContentFromFilesystem, TestCase, testData, TestFile } from './testTree';
+//import { getContentFromFilesystem, TestCase, testData, TestFile } from './testTree';
 import { CloveFacade } from './CloveFacade';
-
+import { CloveTestUI } from './CloveTestUI';
 
 export async function activate(context: vscode.ExtensionContext) {
+  const cloveUI = new CloveTestUI();
+  const cloveCtrl = new CloveFacade(cloveUI.ctrl);
+  context.subscriptions.push(cloveUI);
+  context.subscriptions.push(cloveCtrl);
+
+  //cloveUI.onLoad()
+  cloveUI.onItemClick( async (item) => cloveCtrl.onClickSuiteItem(item));
+  cloveUI.onRefreshBtnClick( async (token) => cloveCtrl.discoverSuites());
+  cloveUI.onRunBtnClick( async (req, token) => cloveCtrl.runTests(req, token));
+  
+  //On Activation
+  cloveCtrl.discoverSuites();
+
+
+  const watcher = vscode.workspace.createFileSystemWatcher("**/*.c");
+  watcher.onDidCreate(uri => cloveCtrl.onFileCreated(uri));
+  watcher.onDidChange(uri => cloveCtrl.onFileWritten(uri));
+  watcher.onDidDelete(uri => cloveCtrl.onFileDeleted(uri));
+  context.subscriptions.push(watcher);
+
+  /*
+
   const ctrl = vscode.tests.createTestController('CloveTestController', 'Clove Unit Test Controller');
   const facade = new CloveFacade(ctrl);
   context.subscriptions.push(ctrl);
   context.subscriptions.push(facade);
-  /*
-  context.subscriptions.push( //Test Discovery on VSCode events Opening/Changing single file
-    //NOTA: Capire ce cambia se uso solo il WATCHING WORSPACE? (forse perche' riesce a watchare solo i file gia esistenti?)
-    vscode.workspace.onDidOpenTextDocument(e => updateNodeForDocument(ctrl, e)),
-    vscode.workspace.onDidChangeTextDocument(e => updateNodeForDocument(ctrl, e.document)),
-  );
-  */
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument(e => console.log("onDidOpenTextDocument: " + e.fileName)),
-    //vscode.workspace.onDidChangeTextDocument(e => console.log("onDidChangeTextDocument: " + e.document.fileName)),
-    //vscode.workspace.onDidSaveTextDocument(e => facade.onDocumentSaved(e)),
-    //vscode.workspace.onDidDeleteFiles(e => facade.onFilesDeleted(e)),
-    //vscode.workspace.onDidRenameFiles((e: vscode.FileRenameEvent) => console.log("onDidRenameFiles: " + e.files[0].oldUri.fsPath + " => " + e.files[0].newUri.fsPath ))
-  );
-
+  
   //ctrl.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, (req, token) => runHandler(ctrl, req, token), true);
   ctrl.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, (req, token) => facade.runTests(req, token), true);
 
@@ -31,18 +39,6 @@ export async function activate(context: vscode.ExtensionContext) {
   //1) At first when Text Explorer is opened first time (item = null) starts watching all workspace for a full discovery
   //2) When clicking/expanding an item in test explorer (item != null)
   ctrl.resolveHandler = async item => {
-    //if (item || !item) return;
-    
-    /*
-    if (!item) {
-      context.subscriptions.push(...debugWatchingWorkspace(ctrl));
-      return;
-    }
-    const data = testData.get(item);
-    if (data instanceof TestFile) {
-      await data.updateFromDisk(ctrl, item);
-    }
-*/ 
     if (!item) { //Case1) opening first time Test Explorer
       //do nothing
     } else {
@@ -57,18 +53,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
   facade.discoverSuites(); //carica solo test con file conosciuti al workspace. (bisogna fare il watch)
 
-  const watcher = vscode.workspace.createFileSystemWatcher("**/*.c");
+  const watcher = vscode.workspace.createFileSystemWatcher("** /*.c");
   watcher.onDidCreate(uri => facade.onFileCreated(uri));
   watcher.onDidChange(uri => facade.onFileWritten(uri));
   watcher.onDidDelete(uri => facade.onFileDeleted(uri));
   context.subscriptions.push(watcher);
+  */
 }
+
+/*
 
 function runHandler(ctrl: vscode.TestController, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   const queue: { test: vscode.TestItem; data: TestCase }[] = [];
   const run = ctrl.createTestRun(request);
   // map of file uris to statments on each line:
-  const coveredLines = new Map</* file uri */ string, (vscode.StatementCoverage | undefined)[]>();
+  //string = file uri
+  const coveredLines = new Map< string, (vscode.StatementCoverage | undefined)[]>();
 
   const discoverTests = async (tests: Iterable<vscode.TestItem>) => {
     for (const test of tests) {
@@ -127,27 +127,14 @@ function runHandler(ctrl: vscode.TestController, request: vscode.TestRunRequest,
     run.end();
   };
 
-/* FDF: SEMBRA INUTILIZZATO?!
-  run.coverageProvider = {
-    provideFileCoverage() {
-      const coverage: vscode.FileCoverage[] = [];
-      for (const [uri, statements] of coveredLines) {
-        coverage.push(
-          vscode.FileCoverage.fromDetails(
-            vscode.Uri.parse(uri),
-            statements.filter((s): s is vscode.StatementCoverage => !!s)
-          )
-        );
-      }
-
-      return coverage;
-    },
-  };
-*/
-
   discoverTests(request.include ?? gatherTestItems(ctrl.items)).then(runTestQueue);
 }
+*/
 
+
+
+
+/*
 function updateNodeForDocument(ctrl: vscode.TestController, e: vscode.TextDocument) {
   if (e.uri.scheme !== 'file') {
     return;
@@ -190,7 +177,7 @@ function getWorkspaceTestPatterns() {
 
   return vscode.workspace.workspaceFolders.map(workspaceFolder => ({
     workspaceFolder,
-    pattern: new vscode.RelativePattern(workspaceFolder, '**/*.md'),
+    pattern: new vscode.RelativePattern(workspaceFolder, '** / *.md'),
   }));
 }
 
@@ -219,4 +206,5 @@ function startWatchingWorkspace(controller: vscode.TestController) {
   });
 }
 
+*/
 

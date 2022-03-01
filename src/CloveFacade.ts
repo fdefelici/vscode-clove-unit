@@ -52,9 +52,9 @@ export class CloveFacade {
     const count = vscode.workspace.textDocuments.length;
     for (const document of vscode.workspace.textDocuments) {
       if (!isTestSuite(document)) continue;
-      const [found, suiteData] = this._get_suite(document.uri); //solo GET. La suite deve esistere a questo punto 
-      if (found) {
-        suiteData!.loadTestsFromDocument(document);
+      const suite = this._get_suite(document.uri); //solo GET. La suite deve esistere a questo punto 
+      if (suite) {
+        suite.loadTestsFromDocument(document);
       }
     }
   }
@@ -84,14 +84,10 @@ export class CloveFacade {
       return [true, suiteData];
   }
 
-  private _get_suite(uri : vscode.Uri) : [boolean, CloveSuite | undefined] {
+  private _get_suite(uri : vscode.Uri) : CloveSuite | undefined {
     const suiteItem = this.ctrl.items.get(uri.toString());
-    let suiteData;
-    if (suiteItem) {
-      suiteData = this.suiteCollection.findByItem(suiteItem); //esiste per forza
-      if (suiteData) return [true, suiteData];
-    }
-    return [false, undefined];
+    if (!suiteItem) return undefined;
+    return this.suiteCollection.findByItem(suiteItem);
   }
 
   public async onFileCreated(uri : vscode.Uri) {
