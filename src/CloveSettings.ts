@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { GlobPattern } from 'vscode';
 
 export class CloveSettings {
     public readonly testProjectWsRelPath : string
@@ -11,6 +12,7 @@ export class CloveSettings {
     public readonly srcSuiteRegex: RegExp;
     public readonly srcTestMarker: string;
     public readonly srcTestRegex: RegExp;
+    public readonly testProjectFileGlob: GlobPattern;
 
     constructor(private json : any) { 
         this.testProjectWsRelPath = json["testProjectWsRelPath"] ?? "";
@@ -20,6 +22,7 @@ export class CloveSettings {
         //CHECK IF SETTINGS ARE VALID
         this.testExecBasePath = path.dirname(this.testExecPath);
 
+        this.testProjectFileGlob = this.testProjectWsRelPath + "**/*.c";
 
         this.srcSuiteMarker = "CLOVE_SUITE_NAME";
         this.srcSuiteRegex = /CLOVE_SUITE_NAME ([a-zA-Z0-9_]*)$/m;

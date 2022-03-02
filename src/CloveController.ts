@@ -1,34 +1,53 @@
 import * as vscode from 'vscode';
-import { Console, debug, timeStamp } from 'console';
 import { Executor } from './Executor';
 import { CloveFilesystem } from './CloveFilesystem';
 import { CloveSuite } from './CloveSuite';
-import { testData } from './testTree';
-import { runInContext } from 'vm';
 import { CloveSuiteCollection } from './CloveSuiteCollection';
-import { pathToFileURL } from 'url';
 import { CloveSettings } from './CloveSettings';
-
+import { CloveTestUI } from './CloveTestUI';
 
 //export type MarkdownTestData = TestFile | TestHeading | TestCase;
 
-export class CloveFacade {
+export class CloveController {
   suiteCollection : CloveSuiteCollection;
   settings : CloveSettings;
-  constructor(private ctrl: vscode.TestController) { 
+  ctrl : vscode.TestController;
+  constructor(private cloveUI: CloveTestUI, 
+              private context: vscode.ExtensionContext) { 
+    this.ctrl = cloveUI.ctrl;
+    
+    
     this.suiteCollection = new CloveSuiteCollection();
 
     const configPath = CloveFilesystem.workspacePath(".vscode", "clove.json");
     const configJson = CloveFilesystem.loadJsonFile(configPath);
     this.settings = new CloveSettings(configJson);
     
+    context.subscriptions.push(this);
+    context.subscriptions.push(cloveUI);
   }
-
+  
   public dispose() {
-    //nothing to do
+    //do nothing
   }
 
-  public onClickSuiteItem(suiteItem : vscode.TestItem) : void {
+  public activate() {
+    //cloveUI.onLoad()
+    this.cloveUI.onItemClick( async (item) => this.itemSelected(item));
+    this.cloveUI.onRefreshBtnClick( async (token) => this.discoverSuites());
+    this.cloveUI.onRunBtnClick( async (req, token) => this.runTests(req, token));
+    
+    this.discoverSuites();
+
+    const watcher = vscode.workspace.createFileSystemWatcher(this.settings.testProjectFileGlob);
+    watcher.onDidCreate(uri => this.onFileCreated(uri));
+    watcher.onDidChange(uri => this.onFileWritten(uri));
+    watcher.onDidDelete(uri => this.onFileDeleted(uri));
+    this.context.subscriptions.push(watcher);
+  }
+
+
+  public itemSelected(suiteItem : vscode.TestItem) : void {
     const suiteData = this.suiteCollection.findByItem(suiteItem);
     if (!suiteData) { console.error("Suite data not found for: " + suiteItem?.uri?.toString()); return; } 
 
@@ -37,9 +56,7 @@ export class CloveFacade {
   }
   
   public async discoverSuites() {
-    //NOTA: Cercare solo dentro la cartella dei test
-    const filePattern = this.settings.testProjectWsRelPath + "**/*.c";
-    for (const uri of await vscode.workspace.findFiles(filePattern)) {
+    for (const uri of await vscode.workspace.findFiles(this.settings.testProjectFileGlob)) {
       if (this.ctrl.items.get(uri.toString())) continue; //suite already discovered
       
       const text = await CloveFilesystem.readUri(uri);
