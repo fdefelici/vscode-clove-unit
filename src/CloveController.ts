@@ -41,7 +41,7 @@ export class CloveController {
 
     const watcher = vscode.workspace.createFileSystemWatcher(this.settings.testProjectFileGlob);
     watcher.onDidCreate(uri => this.onFileCreated(uri));
-    watcher.onDidChange(uri => this.onFileWritten(uri));
+    watcher.onDidChange(uri => this.onFileWritten(uri)); //viene chiamato 2 volte?!?!
     watcher.onDidDelete(uri => this.onFileDeleted(uri));
     this.context.subscriptions.push(watcher);
   }
@@ -57,12 +57,12 @@ export class CloveController {
   
   public async discoverSuites() {
     for (const uri of await vscode.workspace.findFiles(this.settings.testProjectFileGlob)) {
-      if (this.ctrl.items.get(uri.toString())) continue; //suite already discovered
-      
-      const text = await CloveFilesystem.readUri(uri);
-      if (!text.includes(this.settings.srcSuiteMarker)) continue;
+      if (this.suiteCollection.hasSuiteByUri(uri)) continue; //suite already discovered
 
-      const [created, suite] = this._create_suite(uri, text); //Create Suite SE NON DUPLICATA
+      const [isSuite, name, text] = await this._parseTestSuite(uri);
+      if (!isSuite) continue;
+
+      this._create_suite_handler(uri, name!, text!); //Create Suite SE NON DUPLICATA
     }  
 
     //Load Tests from Already Opened Document in editor
@@ -74,8 +74,26 @@ export class CloveController {
         suite.loadTestsFromDocument(document);
       }
     }
+
+
   }
 
+  private _create_suite_handler(uri : vscode.Uri, name : string, text : string) : CloveSuite | undefined {
+    
+    if (this.suiteCollection.hasSuiteNamed(name)) {
+      vscode.window.showErrorMessage(`Suite already exists with this name: "${name}" at "${uri.fsPath}"`);
+      return undefined;
+    }
+    const textLines = text.split("\n"); //To use to find line numbers
+    const desc = CloveFilesystem.workspacePathRelative(uri.path);
+    const suiteItem = this.cloveUI.addSuiteItem(uri, name, desc, textLines.length, text.length);
+
+    const suite = new CloveSuite(this.ctrl, suiteItem, this.settings);
+    this.suiteCollection.add(suite);
+
+    return suite;
+}
+/*
   private _create_suite(uri : vscode.Uri, text : string) : [boolean, CloveSuite | undefined] {
       const textLines = text.split("\n"); //To use to find line numbers
 
@@ -100,7 +118,7 @@ export class CloveController {
 
       return [true, suiteData];
   }
-
+*/
   private _get_suite(uri : vscode.Uri) : CloveSuite | undefined {
     const suiteItem = this.ctrl.items.get(uri.toString());
     if (!suiteItem) return undefined;
@@ -108,51 +126,58 @@ export class CloveController {
   }
 
   public async onFileCreated(uri : vscode.Uri) {
-    const text = await CloveFilesystem.readUri(uri);
-    if (!text.includes(this.settings.srcSuiteMarker)) return;
-    this._create_suite(uri, text); //just create suite if not already exists with same name
+    const [isSuite, name, text] = await this._parseTestSuite(uri);
+    if (!isSuite) return;
+
+    this._create_suite_handler(uri, name!, text!); //just create suite if not already exists with same name
   }
 
   //Listen to file changes on filesystem
   //Implement update as Remove / Create to handle potential CLOVE_SUITE_NAME renaming
   public async onFileWritten(uri : vscode.Uri) {
-    const text = await CloveFilesystem.readUri(uri);
-    if (!text.includes(this.settings.srcSuiteMarker)) return;
+    console.log("CALLED!");
+    //this.suiteCollection.print();
 
-    const suiteItem = this.ctrl.items.get(uri.toString());
+
+    const [isSuite, name, text] = await this._parseTestSuite(uri);
+    if (!isSuite) return;
+
     //Caso: File Copiato e incollato con la test suite dentro
-    if (!suiteItem) {
-      const [created, suite] = this._create_suite(uri, text);
-      suite!.loadTestsFromText(text);
+    if (!this.suiteCollection.hasSuiteByUri(uri)) {
+      const suite = this._create_suite_handler(uri, name!, text!); //nome duplicato gestito dal create
+      suite!.loadTestsFromText(text!);
       return;
     }
 
 
     //Caso: Rinomina Suite  (attenzione a se becco nome suite gia esistente)
-    const suiteRegex = this.settings.srcSuiteRegex;
-    const suiteMatch = text.match(suiteRegex);
-    //if (!suiteMatch) return;   //NON PUO SUCCEDERE PERCHE ENTRO QUI SOLO SE E' SICURO SIA UNA SUITE
-    const suiteNameFound = suiteMatch![1];
+    if (!this.suiteCollection.hasSuiteNamed(name!)) {  //Rinomina verso nome nuovo
+      const suite = this.suiteCollection.findByUri(uri)!;
+      this.suiteCollection.remove(suite);
 
-    if (!this.suiteCollection.hasSuiteNamed(suiteNameFound)) {  //Rinomina verso nome nuovo
-      this.suiteCollection.removeByItem(suiteItem);
-      suiteItem.label = suiteNameFound;
-      
-      const suiteUpdated = new CloveSuite(this.ctrl, suiteItem, this.settings);
-      this.suiteCollection.add(suiteUpdated);
+      suite.getItem().label = name!;
+      //const suiteUpdated = new CloveSuite(this.ctrl, suiteItem, this.settings);
+      this.suiteCollection.add(suite);
       return;
     }
 
-    const suiteFound = this.suiteCollection.findByName(suiteNameFound);
-    if (suiteFound?.getItem() != suiteItem ) { //se non combacia allora sto usando un nome gia esistente
-      this.suiteCollection.removeByItem(suiteItem);
-      this.ctrl.items.delete(uri.toString());
-      vscode.window.showErrorMessage(`Suite already exists with this name: "${suiteNameFound}" at "${suiteFound?.getItem()?.uri?.fsPath}"`);
+/*    
+
+    const suiteByName = this.suiteCollection.findByName(name!);
+    const suiteByUri = this.suiteCollection.findByUri(uri)!;
+    //if (suiteFound?.getItem() != suiteItem ) { //se non combacia allora sto usando un nome gia esistente
+    if (suiteByName != suiteByUri ) { //se non combacia allora sto usando un nome gia esistente
+      this.suiteCollection.remove(suiteByUri);
+      this.cloveUI.removeSuiteItem(uri);
+      this.cloveUI.showError(`Suite already exists with this name: "${name!}" at "${suiteByName?.getItem()?.uri?.fsPath}"`);
       return;
     }
 
-    //Caso: Modifica dei test e basta
-    suiteFound.loadTestsFromText(text);
+    //Caso: Creazione/modifica/cancellazione dei test e basta
+    suiteByName.loadTestsFromText(text!);
+*/
+
+
 
     /* 
     //  NOTA: Non posso fare remove/create perche' ctrl.items non percepisce il cambiamento se fatto troppo velocemente e quindi
@@ -271,6 +296,15 @@ export class CloveController {
     });
 
     run.end();
+  }
+
+  private async _parseTestSuite(uri: vscode.Uri) : Promise<[boolean, string | undefined, string | undefined ]> {
+    const text = await CloveFilesystem.readUri(uri);
+    const suiteRegex = this.settings.srcSuiteRegex;
+    const suiteMatch = text.match(suiteRegex);
+    if (!suiteMatch) return [false, undefined, undefined];
+    const suiteName = suiteMatch![1];
+    return [true, suiteName, text];
   }
 }
 
