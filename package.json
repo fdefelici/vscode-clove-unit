@@ -18,7 +18,9 @@
 		"Other"
 	],
 	"activationEvents": [
-		"workspaceContains:/.vscode/clove.json"
+		"onLanguage:c",
+		"onLanguage:cpp",
+		"workspaceContains:/.vscode/clove_unit_settings.json"
 	],
 	"main": "./out/extension.js",
 	"prettier": {

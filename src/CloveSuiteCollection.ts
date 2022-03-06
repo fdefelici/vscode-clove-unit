@@ -14,12 +14,12 @@ export class CloveSuiteCollection {
     
     
     private suitesByUri : Map<string, CloveSuite>;
-    private suitesByItem : WeakMap<vscode.TestItem, CloveSuite>;
+    private suitesByItem : Map<vscode.TestItem, CloveSuite>; //WeakMap
     private suitesByName : Map<string, CloveSuite>;
     
     constructor() {
         this.suitesByUri = new Map();
-        this.suitesByItem = new WeakMap();
+        this.suitesByItem = new Map();
         this.suitesByName = new Map();
     }
     
@@ -38,6 +38,7 @@ export class CloveSuiteCollection {
     }
 
     public remove(suite: CloveSuite) {
+        if (!this.suitesByName.has(suite.getName())) return;
         this.suitesByUri.delete(suite.getItem().uri!.toString());
         this.suitesByItem.delete(suite.getItem());
         this.suitesByName.delete(suite.getName());
@@ -55,11 +56,20 @@ export class CloveSuiteCollection {
         return this.suitesByUri.get(uri.toString());
     }
 
-    public removeByItem(item : vscode.TestItem) : void {
-        const suite = this.findByItem(item);
-        if (!suite) return;
-        this.suitesByName.delete(suite.getName());
-        this.suitesByItem.delete(item);
+    public removeByUri(uri: vscode.Uri) {
+        const found = this.findByUri(uri);
+        if (!found) return;
+        this.remove(found);
     }
 
+    public asItems(): vscode.TestItem[] {
+        return Array.from( this.suitesByItem.keys());
+    }
+
+    public clear() {
+        this.suitesByUri.clear();
+        this.suitesByItem.clear();
+        this.suitesByName.clear();
+    }
+      
 }

@@ -1,3 +1,4 @@
+import { timeStamp } from 'console';
 import * as path from 'path';
 import { GlobPattern } from 'vscode';
 
@@ -14,10 +15,23 @@ export class CloveSettings {
     public readonly srcTestRegex: RegExp;
     public readonly testProjectFileGlob: GlobPattern;
 
+    private _isValid : boolean;
+
     constructor(private json : any) { 
-        this.testProjectWsRelPath = json["testProjectWsRelPath"] ?? "";
-        this.buildCommand = json["buildCommand"] ?? null;
-        this.testExecPath = json["testExecPath"] ?? "";
+        const testPrjPath = json["testProjectWsRelPath"];
+        const buldCommand = json["buildCommand"];
+        const testExecPath = json["testExecPath"];
+        const prova = json["porcoddio"];
+
+        if (testPrjPath !== undefined && testExecPath !== undefined) {
+            this._isValid = true;
+        } else {
+            this._isValid = false;
+        }
+        
+        this.testProjectWsRelPath = testPrjPath ?? "";
+        this.buildCommand = buldCommand ?? null;
+        this.testExecPath = testExecPath ?? "";
 
         //CHECK IF SETTINGS ARE VALID
         this.testExecBasePath = path.dirname(this.testExecPath);
@@ -28,5 +42,9 @@ export class CloveSettings {
         this.srcSuiteRegex = /CLOVE_SUITE_NAME ([a-zA-Z0-9_]*)$/m;
         this.srcTestMarker = "CLOVE_TEST";
         this.srcTestRegex = /CLOVE_TEST\((\w.*)\)/gm;
+    }
+
+    public isValid() : boolean {
+        return this._isValid;
     }
 }

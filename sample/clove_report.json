@@ -1,55 +1,94 @@
 {
-	"suite_count" : 3,
-	"test_count" : 8,
-	"suites" : {
-		"MySuite01" : {
-			"_data" : {
-				"file" : "test1.c"
+	"clove_version" : "2.X.X",
+	"api_version" : 1,
+	"result" : {
+		"suite_count" : 4,
+		"test_count" : 10,
+		"suites" : {
+			"MySuite01" : {
+				"_data" : {
+					"file" : "test1.c"
+				},
+				"FailTest" : {
+					"status" : 2,
+					"duration" : 300,
+					"line" : 16,
+					"assert" : 3,
+					"type" : 0,
+					"expected" : "",
+					"actual" : ""
+				},
+				"First01Test" : {
+					"status" : 1,
+					"duration" : 300
+				},
+				"IntTest" : {
+					"status" : 2,
+					"duration" : 100,
+					"line" : 20,
+					"assert" : 1,
+					"type" : 3,
+					"expected" : "1",
+					"actual" : "2"
+				},
+				"SecondTest" : {
+					"status" : 2,
+					"duration" : 200,
+					"line" : 11,
+					"assert" : 1,
+					"type" : 1,
+					"expected" : "true",
+					"actual" : "false"
+				}
 			},
-			"FailTest" : {
-				"status" : 2,
-				"line" : 15,
-				"expected" : "FAIL!",
-				"actual" : "FAIL!"
+			"MySuite02" : {
+				"_data" : {
+					"file" : "test2.c"
+				},
+				"Test2" : {
+					"status" : 1,
+					"duration" : 200
+				},
+				"Test213" : {
+					"status" : 1,
+					"duration" : 200
+				},
+				"Test2134" : {
+					"status" : 1,
+					"duration" : 100
+				},
+				"TestPassFail" : {
+					"status" : 1,
+					"duration" : 100
+				}
 			},
-			"First01Test" : {
-				"status" : 1
+			"MySuite03" : {
+				"_data" : {
+					"file" : "test3.c"
+				},
+				"TestTime" : {
+					"status" : 1,
+					"duration" : 6659200
+				}
 			},
-			"IntTest" : {
-				"status" : 2,
-				"line" : 19,
-				"expected" : "1",
-				"actual" : "2"
-			},
-			"SecondTest" : {
-				"status" : 1
+			"MySuite04" : {
+				"_data" : {
+					"file" : "test4.c"
+				},
+				"TestEscapeOnError" : {
+					"status" : 2,
+					"duration" : 2100,
+					"line" : 6,
+					"assert" : 1,
+					"type" : 11,
+					"expected" : "\"Hello\nWorld\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					"actual" : ""
+				}
 			}
 		},
-		"MySuite02" : {
-			"_data" : {
-				"file" : "test2.c"
-			},
-			"Test2" : {
-				"status" : 1
-			},
-			"Test213" : {
-				"status" : 1
-			},
-			"TestPassFail" : {
-				"status" : 1
-			}
-		},
-		"MySuite03" : {
-			"_data" : {
-				"file" : "test3.c"
-			},
-			"TestPassFail" : {
-				"status" : 1
-			}
-		}
-	},
-	"test_passed" : 6,
-	"test_skipped" : 0,
-	"test_failed" : 2,
-	"status" : 2
+		"test_passed" : 6,
+		"test_skipped" : 0,
+		"test_failed" : 4,
+		"status" : 2
+	}
 }

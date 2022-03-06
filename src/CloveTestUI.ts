@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-export class CloveTestUI {
+export class CloveTestUI {    
     public ctrl : vscode.TestController;
     onLoadHandler : () => Thenable<void> | void;
     onItemClickHandler : (item : vscode.TestItem) => Thenable<void> | void;
@@ -19,7 +19,11 @@ export class CloveTestUI {
     public dispose() {
         this.ctrl.dispose();
     }
-    
+
+    public clear() {
+        this.ctrl.items.replace([]);
+    }
+  
     /**
      * First load (and visualization) of Test Explorer UI in VSCode editor
      */
@@ -49,7 +53,25 @@ export class CloveTestUI {
     }
     
     public removeSuiteItem(uri: vscode.Uri) {
+        const item = this.ctrl.items.get(uri.toString());
+        if (!item) return;
         this.ctrl.items.delete(uri.toString());
+    }
+
+    public setSuiteTestItems(suiteItem: vscode.TestItem, 
+                             testItems: [uri: vscode.Uri, name: string][] ) {
+        const items = [] as vscode.TestItem[];
+        if (testItems.length == 0) {
+            suiteItem.children.replace(items);
+            return;
+        }
+
+        testItems.forEach( each => { 
+            const testItem = this.ctrl.createTestItem(each[0].toString() + "/" + each[1], each[1], each[0]);
+            items.push(testItem);
+        });
+
+        suiteItem.children.replace(items);
     }
     
     public showError(message: string) {

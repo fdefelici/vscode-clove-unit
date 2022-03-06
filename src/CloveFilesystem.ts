@@ -6,7 +6,6 @@ import { TextDecoder } from 'util';
 const textDecoder = new TextDecoder('utf-8');
 
 export class CloveFilesystem {
-
     public static workspacePath(...paths: string[]) : string {
         let workspacePath = "";
         if (vscode.workspace.workspaceFolders !== undefined) {
@@ -29,10 +28,18 @@ export class CloveFilesystem {
         return result;
     }
 
+    static pathExists(path: string) : boolean {
+        return fs.existsSync(path);
+    }
+
     public static loadJsonFile(filePath: string) : any {
-        const fileContents = fs.readFileSync(filePath);
-        const json = JSON.parse(fileContents.toString());
-        return json;
+        try {
+            const fileContents = fs.readFileSync(filePath);
+            const json = JSON.parse(fileContents.toString());
+            return json;
+        } catch (err) {
+            return null;
+        }
     }
 
     public static async readUri(uri: vscode.Uri) : Promise<string> {

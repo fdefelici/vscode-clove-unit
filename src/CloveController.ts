@@ -5,67 +5,136 @@ import { CloveSuite } from './CloveSuite';
 import { CloveSuiteCollection } from './CloveSuiteCollection';
 import { CloveSettings } from './CloveSettings';
 import { CloveTestUI } from './CloveTestUI';
-
-//export type MarkdownTestData = TestFile | TestHeading | TestCase;
+import { CloveWatcherCooldownHandler } from './CloveCooldownHandler';
 
 export class CloveController {
-  suiteCollection : CloveSuiteCollection;
+  suites : CloveSuiteCollection;
   settings : CloveSettings;
   ctrl : vscode.TestController;
+  testSrcWatcher: vscode.FileSystemWatcher | null;
+  settingsWatcher: vscode.FileSystemWatcher | null;
+  isSettingsUpdating: boolean;
+  settingsUpdateCooler: CloveWatcherCooldownHandler;
+  testSrcUpdateCooler: CloveWatcherCooldownHandler;
   constructor(private cloveUI: CloveTestUI, 
-              private context: vscode.ExtensionContext) { 
+              context: vscode.ExtensionContext) { 
     this.ctrl = cloveUI.ctrl;
     
-    
-    this.suiteCollection = new CloveSuiteCollection();
+    this.suites = new CloveSuiteCollection();
+    this.settings = new CloveSettings({});
+    this.isSettingsUpdating = false;
+    this.settingsUpdateCooler = new CloveWatcherCooldownHandler();
 
-    const configPath = CloveFilesystem.workspacePath(".vscode", "clove.json");
-    const configJson = CloveFilesystem.loadJsonFile(configPath);
-    this.settings = new CloveSettings(configJson);
-    
+    this.testSrcUpdateCooler = new CloveWatcherCooldownHandler();
+    this.testSrcWatcher = null;
+    this.settingsWatcher = null;
     context.subscriptions.push(this);
-    context.subscriptions.push(cloveUI);
   }
   
   public dispose() {
-    //do nothing
+    this.testSrcWatcher?.dispose();
+    this.settingsWatcher?.dispose();
+    this.cloveUI.dispose();
   }
 
+  //Activation events configured in package.json:
+  //- when opening a C or C++ file
+  //- when opening workspace with VScode already exists a clove_unit_settings.json
   public activate() {
+    const settingsPath = CloveFilesystem.workspacePath(".vscode", "clove_unit_settings.json");
+    if (CloveFilesystem.pathExists(settingsPath)) {
+      this.reconfigure(settingsPath);
+    } 
+    
+    this.settingsWatcher = vscode.workspace.createFileSystemWatcher(settingsPath);
+    this.settingsWatcher.onDidCreate(uri => this.onSettingsCreated(uri));
+    this.settingsWatcher.onDidChange(uri => this.settingsUpdateCooler.execute(uri, this.onSettingsChanged, this));
+    this.settingsWatcher.onDidDelete(uri => this.onSettingsDeleted(uri));
+  }
+
+  private async reconfigure(settingPath: string) { 
+    const configJson = CloveFilesystem.loadJsonFile(settingPath);
+    if (!configJson) {
+      this.cloveUI.showError("Invalid settings detected! Please fix it!");
+      return;
+    }
+
+    const newSettings = new CloveSettings(configJson);
+    if (!newSettings.isValid()) {
+      this.cloveUI.showError("Invalid settings detected! Please fix it!");
+      return;
+    }
+
+    const prevTestSrcPath = this.settings.isValid() ? this.settings.testProjectWsRelPath : null;
+
+    this.settings = newSettings;
+    
+    if ( this.settings.testProjectWsRelPath != prevTestSrcPath) {
+      this.cloveUI.clear();
+      this.suites.clear();
+
+      await this.discoverSuites();
+
+      this.testSrcWatcher?.dispose();
+      this.testSrcWatcher = vscode.workspace.createFileSystemWatcher(this.settings.testProjectFileGlob);
+      this.testSrcWatcher.onDidCreate(uri => this.onTestFileCreated(uri));
+      this.testSrcWatcher.onDidChange(uri => this.settingsUpdateCooler.execute(uri, this.onTestFileChanged, this));
+      this.testSrcWatcher.onDidDelete(uri => this.onTestFileDeleted(uri));
+    }
+
     //cloveUI.onLoad()
     this.cloveUI.onItemClick( async (item) => this.itemSelected(item));
     this.cloveUI.onRefreshBtnClick( async (token) => this.discoverSuites());
     this.cloveUI.onRunBtnClick( async (req, token) => this.runTests(req, token));
-    
-    this.discoverSuites();
-
-    const watcher = vscode.workspace.createFileSystemWatcher(this.settings.testProjectFileGlob);
-    watcher.onDidCreate(uri => this.onFileCreated(uri));
-    watcher.onDidChange(uri => this.onFileWritten(uri)); //viene chiamato 2 volte?!?!
-    watcher.onDidDelete(uri => this.onFileDeleted(uri));
-    this.context.subscriptions.push(watcher);
   }
 
+  private async onSettingsCreated(uri: vscode.Uri) {
+    if (this.isSettingsUpdating) return;
+    this.isSettingsUpdating = true;
 
-  public itemSelected(suiteItem : vscode.TestItem) : void {
-    const suiteData = this.suiteCollection.findByItem(suiteItem);
+    const settingsPath = uri.fsPath;
+    await this.reconfigure(settingsPath);
+
+    this.isSettingsUpdating = false;
+  }
+
+  private async onSettingsChanged(uri: vscode.Uri) {
+    if (this.isSettingsUpdating) return;
+    this.isSettingsUpdating = true;
+    
+    const settingsPath = uri.fsPath;
+    await this.reconfigure(settingsPath);
+    this.isSettingsUpdating = false;
+  }
+  
+  private onSettingsDeleted(uri: vscode.Uri) : void {
+    this.cloveUI.clear();
+    this.suites.clear();
+    this.settings = new CloveSettings({});
+    this.testSrcWatcher?.dispose();
+    this.testSrcWatcher = null;
+  }
+
+  public async itemSelected(suiteItem : vscode.TestItem) {
+    const suiteData = this.suites.findByItem(suiteItem);
     if (!suiteData) { console.error("Suite data not found for: " + suiteItem?.uri?.toString()); return; } 
 
     if (suiteData.hasTestLoaded()) return;
-    suiteData.loadTestsFromDisk();
+    this._load_suite_tests_handler(suiteData, undefined);
   }
   
   public async discoverSuites() {
     for (const uri of await vscode.workspace.findFiles(this.settings.testProjectFileGlob)) {
-      if (this.suiteCollection.hasSuiteByUri(uri)) continue; //suite already discovered
+      if (this.suites.hasSuiteByUri(uri)) continue; //suite already discovered
 
       const [isSuite, name, text] = await this._parseTestSuite(uri);
       if (!isSuite) continue;
 
-      this._create_suite_handler(uri, name!, text!); //Create Suite SE NON DUPLICATA
+      this._create_suite_handler(uri, name!, text!);
     }  
 
     //Load Tests from Already Opened Document in editor
+    /*
     const count = vscode.workspace.textDocuments.length;
     for (const document of vscode.workspace.textDocuments) {
       if (!isTestSuite(document)) continue;
@@ -74,184 +143,191 @@ export class CloveController {
         suite.loadTestsFromDocument(document);
       }
     }
-
-
+    */
   }
 
   private _create_suite_handler(uri : vscode.Uri, name : string, text : string) : CloveSuite | undefined {
-    
-    if (this.suiteCollection.hasSuiteNamed(name)) {
-      vscode.window.showErrorMessage(`Suite already exists with this name: "${name}" at "${uri.fsPath}"`);
+    const suiteFound = this.suites.findByName(name);
+    if (suiteFound) {
+      this.cloveUI.showError(`Suite already exists with this name: "${name}" at "${suiteFound.getItem().uri?.fsPath}"`);
       return undefined;
     }
     const textLines = text.split("\n"); //To use to find line numbers
     const desc = CloveFilesystem.workspacePathRelative(uri.path);
     const suiteItem = this.cloveUI.addSuiteItem(uri, name, desc, textLines.length, text.length);
 
-    const suite = new CloveSuite(this.ctrl, suiteItem, this.settings);
-    this.suiteCollection.add(suite);
+    const suite = new CloveSuite(suiteItem);
+    this.suites.add(suite);
 
     return suite;
-}
-/*
-  private _create_suite(uri : vscode.Uri, text : string) : [boolean, CloveSuite | undefined] {
-      const textLines = text.split("\n"); //To use to find line numbers
+  }
 
-      //Create Suite Item: START
-      const suiteRegex = this.settings.srcSuiteRegex;
-      const suiteMatch = text.match(suiteRegex);
-      //if (!suiteMatch) return;   //NON PUO SUCCEDERE PERCHE ENTRO QUI SOLO SE E' SICURO SIA UNA SUITE
-      const suiteName = suiteMatch![1];
+  private async _load_suite_tests_handler(suite: CloveSuite, text : string | undefined) {
+    const suiteItem = suite.getItem();
+    suiteItem.busy = true;
+    suite.setTestLoaded(false);
+    if (!text) {
+      const uri = suiteItem.uri!;
+      text = await CloveFilesystem.readUri(uri);
+    }
 
-      if (this.suiteCollection.hasSuiteNamed(suiteName)) {
-        vscode.window.showErrorMessage(`Suite already exists with this name: "${suiteName}" at "${uri.fsPath}"`);
-        return [false, undefined];
+    const suiteTests = [] as [uri: vscode.Uri, name: string][];
+    
+    const testMacro = this.settings.srcTestMarker;
+    const testRegex = this.settings.srcTestRegex;
+    const testMatch = text.match(testRegex);
+    if (testMatch) {
+      const uri = suiteItem.uri!;
+      for(let i=0; i < testMatch.length; ++i) {
+          const testDecl = testMatch[i];
+          const testName = testDecl.substring(testMacro.length+1, testDecl.length-1);        
+          //Settare Range per abilitare click e andare direttamente alla funzione di test
+
+          if (suite.hasTest(testName)) {
+            this.cloveUI.showError(`Test named ${testName} already exists in ${suiteItem.uri!.fsPath}`);
+            continue;
+          }
+          suite.addTest(testName);
+          suiteTests.push([uri, testName]);
       }
-      const suiteItem = this.ctrl.createTestItem(uri.toString(), suiteName, uri);
-      suiteItem.description =  CloveFilesystem.workspacePathRelative(uri.path);
-      suiteItem.canResolveChildren = true; //enable: controller.resolveHandler when clicking on Suite Item
-      suiteItem.range = new vscode.Range(0, 0, textLines.length, text.length);
-      this.ctrl.items.add(suiteItem);
-
-      const suiteData = new CloveSuite(this.ctrl, suiteItem, this.settings);
-      this.suiteCollection.add(suiteData);
-
-      return [true, suiteData];
-  }
-*/
-  private _get_suite(uri : vscode.Uri) : CloveSuite | undefined {
-    const suiteItem = this.ctrl.items.get(uri.toString());
-    if (!suiteItem) return undefined;
-    return this.suiteCollection.findByItem(suiteItem);
+      this.cloveUI.setSuiteTestItems(suiteItem, suiteTests);
+      
+      suite.setTestLoaded(true);
+    }
+    suiteItem.busy = false;
   }
 
-  public async onFileCreated(uri : vscode.Uri) {
+  public async onTestFileCreated(uri : vscode.Uri) {
     const [isSuite, name, text] = await this._parseTestSuite(uri);
     if (!isSuite) return;
 
-    this._create_suite_handler(uri, name!, text!); //just create suite if not already exists with same name
+    this._create_suite_handler(uri, name!, text!);
   }
 
   //Listen to file changes on filesystem
-  //Implement update as Remove / Create to handle potential CLOVE_SUITE_NAME renaming
-  public async onFileWritten(uri : vscode.Uri) {
-    console.log("CALLED!");
-    //this.suiteCollection.print();
-
-
+  public async onTestFileChanged(uri : vscode.Uri) {
     const [isSuite, name, text] = await this._parseTestSuite(uri);
     if (!isSuite) return;
 
-    //Caso: File Copiato e incollato con la test suite dentro
-    if (!this.suiteCollection.hasSuiteByUri(uri)) {
-      const suite = this._create_suite_handler(uri, name!, text!); //nome duplicato gestito dal create
-      suite!.loadTestsFromText(text!);
-      return;
-    }
-
-
-    //Caso: Rinomina Suite  (attenzione a se becco nome suite gia esistente)
-    if (!this.suiteCollection.hasSuiteNamed(name!)) {  //Rinomina verso nome nuovo
-      const suite = this.suiteCollection.findByUri(uri)!;
-      this.suiteCollection.remove(suite);
-
-      suite.getItem().label = name!;
-      //const suiteUpdated = new CloveSuite(this.ctrl, suiteItem, this.settings);
-      this.suiteCollection.add(suite);
-      return;
-    }
-
-/*    
-
-    const suiteByName = this.suiteCollection.findByName(name!);
-    const suiteByUri = this.suiteCollection.findByUri(uri)!;
-    //if (suiteFound?.getItem() != suiteItem ) { //se non combacia allora sto usando un nome gia esistente
-    if (suiteByName != suiteByUri ) { //se non combacia allora sto usando un nome gia esistente
-      this.suiteCollection.remove(suiteByUri);
-      this.cloveUI.removeSuiteItem(uri);
-      this.cloveUI.showError(`Suite already exists with this name: "${name!}" at "${suiteByName?.getItem()?.uri?.fsPath}"`);
-      return;
-    }
-
-    //Caso: Creazione/modifica/cancellazione dei test e basta
-    suiteByName.loadTestsFromText(text!);
-*/
-
-
-
-    /* 
-    //  NOTA: Non posso fare remove/create perche' ctrl.items non percepisce il cambiamento se fatto troppo velocemente e quindi
-    //        non si aggiorna il Test Explorer.
-    //Remove
-    const suiteItem = this.ctrl.items.get(uri.toString());
-    if (suiteItem) {
-      this.suiteCollection.removeByItem(suiteItem);
-      this.ctrl.items.delete(uri.toString());
-    }
-    
-    //Create (again)
-    const [created, suiteData] = this._create_suite(uri, text); 
-    if (created) {
-      //suiteData!.loadTestsFromText(text);
-    }
+    /* NOTA:  Sarebbe piu semplice gestire l'aggiornamento come Cancellazione e poi Creazione
+              ma non posso fare remove/create perche' ctrl.items non percepisce il cambiamento se fatto troppo velocemente e quindi
+              non si aggiorna il Test Explorer.
+              (forse dovuto alla doppia gestione evento?!?)
     */
+
+
+    //Caso1: da gestire e' se la URI l'ho eliminata per via di nome duplicato
+    //Se poi la rinomino di nuovo, la uri quindi e' come se fosse nuova.
+    if (!this.suites.hasSuiteByUri(uri) && !this.suites.hasSuiteNamed(name!)) {
+      const suite = this._create_suite_handler(uri, name!, text!);
+      this._load_suite_tests_handler(suite!, text!);
+      return;
+    }
+
+    //Caso2: Rinomina Suite da un nome unico verso un altro nuovo. Quindi item esistente
+    if (!this.suites.hasSuiteNamed(name!)) {  
+      const suite = this.suites.findByUri(uri)!;
+      
+      this.suites.remove(suite);
+      suite.getItem().label = name!;
+      this.suites.add(suite);
+      return;
+    }
+
+    //Caso3: Se il nome suite non combacia con la sua URI allora esiste un'altra suite con quel nome.
+    const suiteOnFile = this.suites.findByName(name!);
+    const suiteOnDomain = this.suites.findByUri(uri)!;
+    if (suiteOnFile && suiteOnFile != suiteOnDomain ) { 
+      if (suiteOnDomain) { //Protegge il caso in cui provo a risalvare con il nome suite ancora duplicato
+        this.suites.remove(suiteOnDomain);
+        this.cloveUI.removeSuiteItem(uri);
+      }
+      this.cloveUI.showError(`Suite already exists with this name: "${name!}" at "${suiteOnFile?.getItem()?.uri?.fsPath}"`);
+      return;
+    }   
+
+    //Caso4: Sto aggiornando i test della suite: Creazione/modifica/cancellazione dei test e basta
+    //suiteOnDomain.loadTestsFromText(text!);
+    this._load_suite_tests_handler(suiteOnDomain, text!);
   }
 
-  public async onFileDeleted(uri : vscode.Uri) {
-    const suiteItem = this.ctrl.items.get(uri.toString());
-    if (!suiteItem) return;
-    this.suiteCollection.removeByItem(suiteItem);
-    this.ctrl.items.delete(uri.toString());
+  public async onTestFileDeleted(uri : vscode.Uri) {
+    this.suites.removeByUri(uri);
+    this.cloveUI.removeSuiteItem(uri);
   }
 
-  //1) Run di tutti i test
-  //2) Run di una singola Suite
-  //3) Run di un singolo test
+  //Cases: 
+  //1) Run all tests
+  //2) Run a single Suite
+  //3) Run a single Test
+  //4) Run multiple Suites / Tests
   public async runTests(request: vscode.TestRunRequest, token: vscode.CancellationToken) {
     //Could be: SuiteItem or TestCaseItem
-    const selectedItems =  request.include ?? this.ctrl.items;
+    //const selectedItems =  request.include ?? this.ctrl.items;
+    const selectedItems =  request.include ?? this.suites.asItems();
 
     const run = this.ctrl.createTestRun(request);
-    //const queue = 
-    //await enqueTests(request, run, queue);
-    //await playTests(run, queue);
 
     //Load all Test Items for sure
-    selectedItems.forEach( (item, _) => {
+    for( const item of selectedItems) {
       const isTestCase = item.parent != undefined;
       if (isTestCase) {
         run.enqueued(item);
       } else {
-        const suiteData = this.suiteCollection.findByItem(item);
+        const suiteData = this.suites.findByItem(item);
         if (!suiteData!.hasTestLoaded()) {
-          suiteData!.loadTestsFromDisk();
+          await this._load_suite_tests_handler(suiteData!, undefined);
         }
         item.children.forEach( (testItem, _) => {
           run.enqueued(testItem);
         });
       }
-    });
+    }
 
     //Build Tests
-    console.log("BUILD STARTED!"); //run.appendOutput
     const workspacePath = CloveFilesystem.workspacePath();
     if (this.settings.buildCommand) {
+      run.appendOutput("Build Started ...");
       await Executor.aexec(this.settings.buildCommand, workspacePath)
-        .catch(err => vscode.window.showErrorMessage(`Error on build command: ${this.settings.buildCommand}`)); 
+        .catch(err => {
+          const msg = `Error on build command: ${this.settings.buildCommand}`; 
+          run.appendOutput(msg);
+          vscode.window.showErrorMessage(msg); 
+        }); 
+      run.appendOutput("Build Finished!");
     }
-    console.log("BUILD FINISHED!");
 
     //Run Tests
-    console.log("RUN STARTED: " + workspacePath);
+    let execCmdFailed = false;
+    run.appendOutput("Execute Started ...");
     await Executor.aexec(this.settings.testExecPath + " json", workspacePath)
-      .catch(err => vscode.window.showErrorMessage(`Error executing tests: ${this.settings.testExecPath}`)); 
-    console.log("RUN FINISHED!!!");
+      .catch(err => {
+        execCmdFailed = true;
+        const msg = `Error executing tests at: ${this.settings.testExecPath}`; 
+        run.appendOutput(msg);
+        run.appendOutput(err.message);
+        vscode.window.showErrorMessage(msg);
+      }); 
+    run.appendOutput("Execute Finished!");
+
+    if (execCmdFailed) {
+      run.end();
+      return;
+    }
 
     //Update Test Results
     const reportPath = CloveFilesystem.workspacePath(this.settings.testExecBasePath, "clove_report.json");
     const reportJson = CloveFilesystem.loadJsonFile(reportPath);
+    
+    if (reportJson.api_version != 1) { //Supported json report version
+      this.cloveUI.showError(`This Clove Unit VSCode Extension doesn't support clove_unit v${reportJson.clove_version}`);
+      run.end();
+      return;
+    }
+
+    const resultJson = reportJson.result;
   
-    selectedItems.forEach( (item, _) => {      
+    for( const item of selectedItems) {     
       const isTestCase = item.parent != undefined;
       
       let suiteName;
@@ -265,7 +341,7 @@ export class CloveController {
         testItems = item.children;
       }
 
-      const reportSuite = reportJson.suites[suiteName];
+      const reportSuite = resultJson.suites[suiteName];
       testItems.forEach( (testItem, _) => {
         if (token.isCancellationRequested) {
           run.skipped(testItem);
@@ -276,24 +352,42 @@ export class CloveController {
         const testName = testItem.label;
         const report_test = reportSuite[testName];
         const testStatus = report_test.status;
-        const duration = 100;
-        if (testStatus == 1) {
+        let duration = report_test.duration / 1000000; //1 Millinon nanos per ms
+        if (duration > 0 && duration < 1 ) duration = 0.1; //minimu Test Explorer time resolution is 0.1 ms
+        if (testStatus == 1) { //1 = Passed
           run.passed(testItem, duration);
-        } else if (testStatus == 2) {
-          //const message = vscode.TestMessage.diff(`Expected ${item.label}`, String(this.expected), String(actual));
-          //PER ORA HO ELIMINATO "message"
-          //const message = vscode.TestMessage.diff(report_test.message, "EXPECTED", "ACTUAL");
-          //message.location = new vscode.Location(test_item.uri!, test_item.range!);
-
-          const message = vscode.TestMessage.diff("CHE Messaggio?", report_test.expected, report_test.actual);
-          message.location = new vscode.Location(testItem.uri!, new vscode.Range(report_test.line, 0, report_test.line, 1));
+        } else if (testStatus == 2) { //2 = Failed
+          let assertMsg;
+          let exp = report_test.expected;
+          let act = report_test.actual;
+          if (report_test.type == 11) { //Data Type = String
+            const exp_init_len = exp.length; 
+            const act_init_len = act.length;
+            exp = exp.substring(0,  exp_init_len > 16 ? 16 : exp.length);
+            act = act.substring(0,  act_init_len > 16 ? 16 : act.length);
+            exp = JSON.stringify(exp);
+            act = JSON.stringify(act);
+            exp = exp.substring(1, exp.length-1); //remove ""
+            act = exp.substring(1, act.length-1); //remove ""
+            if (exp_init_len > 16) exp += "...";
+            if (act_init_len > 16) act += "...";
+          }
+          switch(report_test.assert) {
+            case 1: { assertMsg = `expected [${exp}] but was [${act}]`;  break; }
+            case 2: { assertMsg = `not expected [${exp}] but was [${act}]`;  break; }
+            case 3: { assertMsg = `a fail assertion has been met!`;  break; }
+            default: { assertMsg = "<undefined>";  break; }
+          }
+          //TODO: Use Markdown string in assert Msg to highlight value boundaries
+          const message = vscode.TestMessage.diff(assertMsg, report_test.expected, report_test.actual);
+          const zeroBasedLine = report_test.line - 1;
+          message.location = new vscode.Location(testItem.uri!, new vscode.Range(zeroBasedLine, 0, zeroBasedLine, 1));
           run.failed(testItem, message, duration);
-        } else if (testStatus == 3) {
+        } else if (testStatus == 3) { //3 = Skipped
           run.skipped(testItem);
         }
       });
-
-    });
+    }
 
     run.end();
   }
@@ -306,16 +400,4 @@ export class CloveController {
     const suiteName = suiteMatch![1];
     return [true, suiteName, text];
   }
-}
-
-
-function isTestSuite(doc: vscode.TextDocument) : boolean {
-  if (doc.uri.scheme !== 'file') return false;
-
-  const path = doc.uri.path;
-
-  if (!doc.uri.path.endsWith('.c')) return false;
-  const str = doc.getText();
-  if (!doc.getText().includes("CLOVE_SUITE_NAME")) return false;
-  return true;
 }

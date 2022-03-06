@@ -1,5 +1,5 @@
 {
     "testProjectWsRelPath" : "",
     "buildCommand" : "clang -I. -o test.exe *.c",
-    "testExecPath" : ".\\test.exe"
+    "testExecPath" : "test.exe"
 }

@@ -8,7 +8,8 @@ CLOVE_TEST(First01Test) {
 }
 
 CLOVE_TEST(SecondTest) {
-    CLOVE_IS_TRUE(1);
+    CLOVE_IS_TRUE(false);
+    CLOVE_IS_TRUE(true);
 }
 
 CLOVE_TEST(FailTest) {
