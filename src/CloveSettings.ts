@@ -3,7 +3,7 @@ import * as path from 'path';
 import { GlobPattern } from 'vscode';
 
 export class CloveSettings {
-    public readonly testProjectWsRelPath : string
+    public readonly testSourcesPath : string
     public readonly buildCommand : string | null;
     public readonly testExecPath : string;
     
@@ -18,7 +18,7 @@ export class CloveSettings {
     private _isValid : boolean;
 
     constructor(private json : any) { 
-        const testPrjPath = json["testProjectWsRelPath"];
+        const testPrjPath = json["testSourcesPath"];
         const buldCommand = json["buildCommand"];
         const testExecPath = json["testExecPath"];
         const prova = json["porcoddio"];
@@ -29,14 +29,14 @@ export class CloveSettings {
             this._isValid = false;
         }
         
-        this.testProjectWsRelPath = testPrjPath ?? "";
+        this.testSourcesPath = testPrjPath ?? "";
         this.buildCommand = buldCommand ?? null;
         this.testExecPath = testExecPath ?? "";
 
         //CHECK IF SETTINGS ARE VALID
         this.testExecBasePath = path.dirname(this.testExecPath);
 
-        this.testProjectFileGlob = this.testProjectWsRelPath + "**/*.c";
+        this.testProjectFileGlob = this.testSourcesPath + "**/*.c";
 
         this.srcSuiteMarker = "CLOVE_SUITE_NAME";
         this.srcSuiteRegex = /CLOVE_SUITE_NAME ([a-zA-Z0-9_]*)$/m;

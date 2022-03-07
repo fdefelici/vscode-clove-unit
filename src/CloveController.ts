@@ -65,11 +65,11 @@ export class CloveController {
       return;
     }
 
-    const prevTestSrcPath = this.settings.isValid() ? this.settings.testProjectWsRelPath : null;
+    const prevTestSrcPath = this.settings.isValid() ? this.settings.testSourcesPath : null;
 
     this.settings = newSettings;
     
-    if ( this.settings.testProjectWsRelPath != prevTestSrcPath) {
+    if ( this.settings.testSourcesPath != prevTestSrcPath) {
       this.cloveUI.clear();
       this.suites.clear();
 
