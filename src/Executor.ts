@@ -9,17 +9,14 @@ export class Executor {
         return process;
     }
 
-    public static async aexec(command: string,  cwd: string) {
-        //console.log("PROVA: " + process.cwd());
-        return new Promise<void>( (resolve, reject) => {
+    public static aexec(command: string,  cwd: string) : Promise<string> {
+        return new Promise<string>( (resolve, reject) => {
             Executor.exec(command, cwd, (err: any, stdout: string) => {
                 if (err) {
-                    //console.log(err);
                     reject(new Error(`Failing executing command: "${command}" at cwd: "${cwd}"`));
                 }
                 else {
-                    //console.log(stdout);
-                    resolve();
+                    resolve(stdout);
                 }
             });
         });

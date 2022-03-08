@@ -1,6 +1,7 @@
 import { timeStamp } from 'console';
 import * as path from 'path';
 import { GlobPattern } from 'vscode';
+import { CloveVersion } from './CloveVersion';
 
 export class CloveSettings {
     public readonly testSourcesPath : string
@@ -15,6 +16,8 @@ export class CloveSettings {
     public readonly srcTestRegex: RegExp;
     public readonly testProjectFileGlob: GlobPattern;
 
+    public readonly supportedCloveVersion: CloveVersion;
+    
     private _isValid : boolean;
 
     constructor(private json : any) { 
@@ -32,7 +35,6 @@ export class CloveSettings {
         this.buildCommand = buldCommand ?? null;
         this.testExecPath = testExecPath ?? "";
 
-        //CHECK IF SETTINGS ARE VALID
         this.testExecBasePath = path.dirname(this.testExecPath);
 
         this.testProjectFileGlob = this.testSourcesPath + "**/*.c";
@@ -41,6 +43,8 @@ export class CloveSettings {
         this.srcSuiteRegex = /CLOVE_SUITE_NAME ([a-zA-Z0-9_]*)$/m;
         this.srcTestMarker = "CLOVE_TEST";
         this.srcTestRegex = /CLOVE_TEST\((\w.*)\)/gm;
+
+        this.supportedCloveVersion = new CloveVersion(2, 2, 1);
     }
 
     public isValid() : boolean {

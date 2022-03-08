@@ -6,6 +6,7 @@ import { CloveSuiteCollection } from './CloveSuiteCollection';
 import { CloveSettings } from './CloveSettings';
 import { CloveTestUI } from './CloveTestUI';
 import { CloveWatcherCooldownHandler } from './CloveCooldownHandler';
+import { CloveVersion } from './CloveVersion';
 
 export class CloveController {
   suites : CloveSuiteCollection;
@@ -209,22 +210,21 @@ export class CloveController {
     const [isSuite, name, text] = await this._parseTestSuite(uri);
     if (!isSuite) return;
 
-    /* NOTA:  Sarebbe piu semplice gestire l'aggiornamento come Cancellazione e poi Creazione
-              ma non posso fare remove/create perche' ctrl.items non percepisce il cambiamento se fatto troppo velocemente e quindi
-              non si aggiorna il Test Explorer.
-              (forse dovuto alla doppia gestione evento?!?)
+    /* NOTE:  Would be simpler to handle updates as a Remove/Creation
+              but doing remove/create on ctrl.items very quickly the ui doesn't feel the change.
+              And Test Explorer keep the previous data 
     */
 
 
-    //Caso1: da gestire e' se la URI l'ho eliminata per via di nome duplicato
-    //Se poi la rinomino di nuovo, la uri quindi e' come se fosse nuova.
+    //Case1: if the URI has been previously deleted because of duplicate suite name
+    //If then rename it again the URI is like it was new.
     if (!this.suites.hasSuiteByUri(uri) && !this.suites.hasSuiteNamed(name!)) {
       const suite = this._create_suite_handler(uri, name!, text!);
       this._load_suite_tests_handler(suite!, text!);
       return;
     }
 
-    //Caso2: Rinomina Suite da un nome unico verso un altro nuovo. Quindi item esistente
+    //Case2: Rename Suite from a unique name to another unique name. So the UI TestItem already exists.
     if (!this.suites.hasSuiteNamed(name!)) {  
       const suite = this.suites.findByUri(uri)!;
       
@@ -234,7 +234,7 @@ export class CloveController {
       return;
     }
 
-    //Caso3: Se il nome suite non combacia con la sua URI allora esiste un'altra suite con quel nome.
+    //Case3: If the Suite name doesn't match with its URI then exists another suite with that name
     const suiteOnFile = this.suites.findByName(name!);
     const suiteOnDomain = this.suites.findByUri(uri)!;
     if (suiteOnFile && suiteOnFile != suiteOnDomain ) { 
@@ -246,8 +246,7 @@ export class CloveController {
       return;
     }   
 
-    //Caso4: Sto aggiornando i test della suite: Creazione/modifica/cancellazione dei test e basta
-    //suiteOnDomain.loadTestsFromText(text!);
+    //Case4: Just updating test case of the suite: Create/Update/Delete of tests
     this._load_suite_tests_handler(suiteOnDomain, text!);
   }
 
@@ -297,10 +296,34 @@ export class CloveController {
       run.appendOutput("Build Finished!");
     }
 
+    //Check if VSCode CLove-Unit extension is compatible with clove-unit.h used in the test project
+    let checkCmdFaild = false;
+    const cloveVersion = await Executor.aexec(this.settings.testExecPath + " -v", workspacePath)
+      .catch((err : Error) => {
+        checkCmdFaild = true;
+        const msg = `Error executing test binary at: ${this.settings.testExecPath}`; 
+        vscode.window.showErrorMessage(msg);
+    }); 
+    if (checkCmdFaild) return;
+
+    const semVerFound = CloveVersion.fromSemVerString(cloveVersion!);
+    if (!semVerFound) {
+      vscode.window.showErrorMessage("Impossible to retrieve clove-unit.h version!");
+      return;
+    }    
+
+    const isCompatible = this.settings.supportedCloveVersion.hasSameMinor(semVerFound);
+    if (!isCompatible) {
+      const supported = this.settings.supportedCloveVersion.asMinorString();
+      vscode.window.showErrorMessage(`CLove-Unit VSCode Extension is compatible with clove-unit.h v${supported}. 
+          Currently clove-unit.h v${cloveVersion} has been detected! Please updated to a supported version!`);
+      return;
+    }
+
     //Run Tests
     let execCmdFailed = false;
     run.appendOutput("Execute Started ...");
-    await Executor.aexec(this.settings.testExecPath + " json", workspacePath)
+    await Executor.aexec(this.settings.testExecPath + " -r json -f vscode_clove_report.json", workspacePath)
       .catch(err => {
         execCmdFailed = true;
         const msg = `Error executing tests at: ${this.settings.testExecPath}`; 
@@ -316,7 +339,7 @@ export class CloveController {
     }
 
     //Update Test Results
-    const reportPath = CloveFilesystem.workspacePath(this.settings.testExecBasePath, "clove_report.json");
+    const reportPath = CloveFilesystem.workspacePath(this.settings.testExecBasePath, "vscode_clove_report.json");
     const reportJson = CloveFilesystem.loadJsonFile(reportPath);
     
     if (reportJson.api_version != 1) { //Supported json report version
