@@ -12,7 +12,7 @@
 		"type": "git",
 		"url": "https://github.com/fdefelici/vscode-clove-unit"
 	},
-	"icon": "sample/images/icon.png",
+	"icon": "icon.png",
 
 	"engines": {
 		"vscode": "^1.63.0"
