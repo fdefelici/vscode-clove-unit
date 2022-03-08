@@ -21,7 +21,6 @@ export class CloveSettings {
         const testPrjPath = json["testSourcesPath"];
         const buldCommand = json["buildCommand"];
         const testExecPath = json["testExecPath"];
-        const prova = json["porcoddio"];
 
         if (testPrjPath !== undefined && testExecPath !== undefined) {
             this._isValid = true;
