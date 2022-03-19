@@ -26,15 +26,20 @@ Here an example of project developed with `clove-unit` with related extension co
 > You can find this example project [here](./sample). 
 
 ### Filesystem
-- .vscode/
-	- clove_unit_settings.json
-- bin/
-	- test.exe (this will be produced when launching tests. Look at the Configuration.)
-- include/
-	- clove_unit.h
-- src/
-	- test1.c
-	- test2.c
+```
+.vscode/
+	clove_unit_settings.json
+
+bin/
+	test.exe (produced when launching tests - see Configuration)
+
+include/
+	clove_unit.h
+
+src/
+	test1.c
+	test2.c
+```
 
 > NOTE: You can organize your project within the vscode workspace as you prefer. No constraints on this. 
 

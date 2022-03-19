@@ -77,9 +77,12 @@ export class CloveController {
       await this.discoverSuites();
 
       this.testSrcWatcher?.dispose();
-      this.testSrcWatcher = vscode.workspace.createFileSystemWatcher(this.settings.testProjectFileGlob);
+      const testSourcesUri = vscode.Uri.file(CloveFilesystem.workspacePath(this.settings.testSourcesPath));
+      //const pattern = new vscode.RelativePattern(vscode.workspace.workspaceFolders![0], 'src/**/*.c');
+      const watchPattern = new vscode.RelativePattern(testSourcesUri, '**/*.c');
+      this.testSrcWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
       this.testSrcWatcher.onDidCreate(uri => this.onTestFileCreated(uri));
-      this.testSrcWatcher.onDidChange(uri => this.settingsUpdateCooler.execute(uri, this.onTestFileChanged, this));
+      this.testSrcWatcher.onDidChange(uri => this.testSrcUpdateCooler.execute(uri, this.onTestFileChanged, this));
       this.testSrcWatcher.onDidDelete(uri => this.onTestFileDeleted(uri));
     }
 
