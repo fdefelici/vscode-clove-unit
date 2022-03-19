@@ -26,6 +26,7 @@ Here an example of project developed with `clove-unit` with related extension co
 > You can find this example project [here](./sample). 
 
 ### Filesystem
+Project organization for this example:
 ```
 .vscode/
 	clove_unit_settings.json
@@ -44,8 +45,8 @@ src/
 > NOTE: You can organize your project within the vscode workspace as you prefer. No constraints on this. 
 
 ### Configuration:
+`.vscode/clove_unit_settings.json` configuration for this example:
 ```json
-//clove_unit_settings.json
 {
     "testSourcesPath" : "src",
     "buildCommand" : "clang -I include -o bin\\test.exe src\\*.c",

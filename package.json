@@ -2,18 +2,20 @@
 	"name": "vscode-clove-unit",
 	"displayName": "CLove-Unit",
 	"description": "Testing Extension for CLove-Unit unit testing library for C/C++",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"publisher": "fdefelici",
 	"author": {
 		"name": "Federico De Felici"
 	},
+	"icon": "icon.png",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/fdefelici/vscode-clove-unit"
 	},
-	"icon": "icon.png",
-
+	"bugs": {
+		"url": "https://github.com/fdefelici/vscode-clove-unit/issues"
+	},
 	"engines": {
 		"vscode": "^1.63.0"
 	},
