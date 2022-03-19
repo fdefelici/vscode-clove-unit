@@ -6,4 +6,5 @@ node_modules
 /vscode.d.ts
 /vscode.proposed.*.d.ts
 
+/.vscode/c_cpp_properties.json
 sample/bin
