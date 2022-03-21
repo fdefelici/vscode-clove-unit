@@ -79,7 +79,7 @@ export class CloveController {
       this.testSrcWatcher?.dispose();
       const testSourcesUri = vscode.Uri.file(CloveFilesystem.workspacePath(this.settings.testSourcesPath));
       //const pattern = new vscode.RelativePattern(vscode.workspace.workspaceFolders![0], 'src/**/*.c');
-      const watchPattern = new vscode.RelativePattern(testSourcesUri, '**/*.c');
+      const watchPattern = new vscode.RelativePattern(testSourcesUri, '**/*.{c,cpp}');
       this.testSrcWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
       this.testSrcWatcher.onDidCreate(uri => this.onTestFileCreated(uri));
       this.testSrcWatcher.onDidChange(uri => this.testSrcUpdateCooler.execute(uri, this.onTestFileChanged, this));
@@ -273,6 +273,7 @@ export class CloveController {
     //Load all Test Items for sure
     for( const item of selectedItems) {
       const isTestCase = item.parent != undefined;
+      
       if (isTestCase) {
         run.enqueued(item);
       } else {
@@ -292,9 +293,8 @@ export class CloveController {
       run.appendOutput("Build Started ...");
       await Executor.aexec(this.settings.buildCommand, workspacePath)
         .catch(err => {
-          const msg = `Error on build command: ${this.settings.buildCommand}`; 
-          run.appendOutput(msg);
-          vscode.window.showErrorMessage(msg); 
+          run.appendOutput(err.message);
+          vscode.window.showErrorMessage(err.message); 
         }); 
       run.appendOutput("Build Finished!");
     }
@@ -304,8 +304,9 @@ export class CloveController {
     const cloveVersion = await Executor.aexec(this.settings.testExecPath + " -v", workspacePath)
       .catch((err : Error) => {
         checkCmdFaild = true;
-        const msg = `Error executing test binary at: ${this.settings.testExecPath}`; 
-        vscode.window.showErrorMessage(msg);
+        //const msg = `Error executing test binary at: ${this.settings.testExecPath}`; 
+        //console.log(err.message);
+        vscode.window.showErrorMessage(err.message);
     }); 
     if (checkCmdFaild) return;
 
@@ -332,7 +333,7 @@ export class CloveController {
         const msg = `Error executing tests at: ${this.settings.testExecPath}`; 
         run.appendOutput(msg);
         run.appendOutput(err.message);
-        vscode.window.showErrorMessage(msg);
+        vscode.window.showErrorMessage(err.message);
       }); 
     run.appendOutput("Execute Finished!");
 
@@ -346,7 +347,7 @@ export class CloveController {
     const reportJson = CloveFilesystem.loadJsonFile(reportPath);
     
     if (reportJson.api_version != 1) { //Supported json report version
-      this.cloveUI.showError(`This Clove Unit VSCode Extension doesn't support clove_unit v${reportJson.clove_version}`);
+      this.cloveUI.showError(`This Clove Unit VSCode Extension doesn't support clove_unit v${reportJson.clove_version}. Try to update to latest clove-unit.h!`);
       run.end();
       return;
     }
@@ -368,6 +369,11 @@ export class CloveController {
       }
 
       const reportSuite = resultJson.suites[suiteName];
+      if (!reportSuite) {
+        run.skipped(item);
+        this.cloveUI.showError(`Suite not found in the test binary: ${suiteName}`);
+        continue;
+      }
       testItems.forEach( (testItem, _) => {
         if (token.isCancellationRequested) {
           run.skipped(testItem);
@@ -377,6 +383,11 @@ export class CloveController {
 
         const testName = testItem.label;
         const report_test = reportSuite[testName];
+        if (!report_test) {
+          run.skipped(testItem);
+          this.cloveUI.showError(`Test method not found in the test binary: ${testName}`);
+          return;
+        }
         const testStatus = report_test.status;
         let duration = report_test.duration / 1000000; //1 Millinon nanos per ms
         if (duration > 0 && duration < 1 ) duration = 0.1; //minimu Test Explorer time resolution is 0.1 ms

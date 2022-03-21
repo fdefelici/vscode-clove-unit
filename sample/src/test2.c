@@ -1,12 +1,13 @@
 #define CLOVE_SUITE_NAME MySuite02
 #include "clove-unit.h"
+#include "sample-utils.h"
 
 CLOVE_TEST(MyTest01) {
-    Sleep(300);
+    sleep_secs(2);
     CLOVE_PASS();
 } 
- 
-CLOVE_TEST(MyTest02) {
-    Sleep(100);
+ CLOVE_TEST(MyTest02) {
+    sleep_secs(1);
     CLOVE_PASS();
 }
+

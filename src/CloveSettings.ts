@@ -37,7 +37,7 @@ export class CloveSettings {
 
         this.testExecBasePath = path.dirname(this.testExecPath);
 
-        this.testProjectFileGlob = this.testSourcesPath + "**/*.c";
+        this.testProjectFileGlob = this.testSourcesPath + "/**/*.{c,cpp}";
 
         this.srcSuiteMarker = "CLOVE_SUITE_NAME";
         this.srcSuiteRegex = /CLOVE_SUITE_NAME ([a-zA-Z0-9_]*)$/m;

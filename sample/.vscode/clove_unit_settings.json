@@ -1,5 +1,5 @@
 {
     "testSourcesPath" : "src",
-    "buildCommand" : "clang -I include -o bin\\test.exe src\\*.c",
+    "buildCommand" : "clang -I include -o bin\\test.exe src\\*.c src\\sub\\*.c",
     "testExecPath" : "bin\\test.exe"
 }

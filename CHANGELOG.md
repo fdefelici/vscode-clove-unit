@@ -1,5 +1,9 @@
 # CLove-Unit Testing Extension for VSCode Changelog
 
+## v0.0.5: March 22, 2022
+### Feature
+* added test discovery for .cpp files
+
 ## v0.0.4: March 19, 2022
 ### Documentation
 * Improved Readme

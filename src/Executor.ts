@@ -1,19 +1,21 @@
-import { ChildProcess, exec } from "child_process";
+import { ChildProcess, exec, ExecException } from "child_process";
 import { platform } from "os";
 import * as vscode from "vscode";
 //import { path } from "path";
 export class Executor {
 
-    public static exec(command: string, cwd : string, callback: (error: any, stdout: string) => void) {
+    public static exec(command: string, cwd : string, callback: (error: ExecException | null, stdout: string) => void) {
         const process = exec(command, {encoding: "utf8", maxBuffer: 5120000, cwd}, callback);
         return process;
     }
 
     public static aexec(command: string,  cwd: string) : Promise<string> {
         return new Promise<string>( (resolve, reject) => {
-            Executor.exec(command, cwd, (err: any, stdout: string) => {
+            Executor.exec(command, cwd, (err: ExecException | null, stdout: string) => {
                 if (err) {
-                    reject(new Error(`Failing executing command: "${command}" at cwd: "${cwd}"`));
+                    //TODO: Temporary check because clove-unit v2.2.3 return 1 if test execution has some failure.
+                    if (err.code == 1) resolve(stdout);
+                    else reject(new Error(`Failing executing command: "${command}" at cwd: "${cwd}" with exit code (${err.code})`));
                 }
                 else {
                     resolve(stdout);
