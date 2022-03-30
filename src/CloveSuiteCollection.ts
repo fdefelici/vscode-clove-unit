@@ -56,6 +56,14 @@ export class CloveSuiteCollection {
         return this.suitesByUri.get(uri.toString());
     }
 
+    public findByBasePath(path: string) : CloveSuite[] {
+        const result = [] as CloveSuite[];
+        this.suitesByName.forEach((value: CloveSuite, key: string) => {
+            if (value.hasBasePath(path)) result.push(value);
+        });
+        return result;
+    }
+
     public removeByUri(uri: vscode.Uri) {
         const found = this.findByUri(uri);
         if (!found) return;

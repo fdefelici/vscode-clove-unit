@@ -11,14 +11,16 @@ export class CloveWatcherCooldownHandler {
         this.coolMillis = 1000; //1s
     }
 
-    public execute( uri: vscode.Uri, funct: (uri: vscode.Uri) => any, funct_context: any) : void {
+    public execute(funct: (...args: any[]) => any, funct_context?: any, ...args: any[]) : any {
         const now = new Date();
         const millisDiff = now.getTime() - this.last.getTime();
         if (millisDiff < this.coolMillis) return;
         
         this.last = now;
+        funct_context = funct_context ?? this;
         funct = funct.bind(funct_context);
-        funct(uri);
+        return funct(args);
     }
+
 
 }

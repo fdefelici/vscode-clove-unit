@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from 'fs';
 import * as path from 'path';
 import { TextDecoder } from 'util';
+import { CloveFilesystemWatcher } from './CloveFilesystemWatcher';
 
 const textDecoder = new TextDecoder('utf-8');
 
@@ -32,6 +33,10 @@ export class CloveFilesystem {
         return fs.existsSync(path);
     }
 
+    static pathConcat(...paths: string[]) : string {
+        return path.join(...paths);
+    }
+
     public static loadJsonFile(filePath: string) : any {
         try {
             const fileContents = fs.readFileSync(filePath);
@@ -55,5 +60,18 @@ export class CloveFilesystem {
         };
 
         return getContentFromFilesystem(uri);
+    }
+
+    public static createWatcher(globPattern : vscode.GlobPattern, onlyFolderFilter = false) : CloveFilesystemWatcher {
+        return new CloveFilesystemWatcher(globPattern, onlyFolderFilter);
+    }
+
+    public static seemsFilePath(str : string) : boolean {
+        const fileRegex = /^.*\.[^.\\/]+$/;
+        return str.match(fileRegex) != null; 
+    }
+
+    public static seemsDirPath(str : string) : boolean {
+        return !this.seemsFilePath(str);
     }
 }
