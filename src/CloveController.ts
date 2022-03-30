@@ -7,6 +7,9 @@ import { CloveSettings } from './CloveSettings';
 import { CloveTestUI } from './CloveTestUI';
 import { CloveWatcherCooldownHandler } from './CloveCooldownHandler';
 import { CloveVersion } from './CloveVersion';
+//import { fstat } from 'fs';
+import * as fs from 'fs';
+import { CloveFilesystemWatcher } from './CloveFilesystemWatcher';
 
 export class CloveController {
   suites : CloveSuiteCollection;
@@ -17,6 +20,9 @@ export class CloveController {
   isSettingsUpdating: boolean;
   settingsUpdateCooler: CloveWatcherCooldownHandler;
   testSrcUpdateCooler: CloveWatcherCooldownHandler;
+
+  testSrcFileWatcher : CloveFilesystemWatcher | null;
+
   constructor(private cloveUI: CloveTestUI, 
               context: vscode.ExtensionContext) { 
     this.ctrl = cloveUI.ctrl;
@@ -29,12 +35,19 @@ export class CloveController {
     this.testSrcUpdateCooler = new CloveWatcherCooldownHandler();
     this.testSrcWatcher = null;
     this.settingsWatcher = null;
+
+    this.testSrcFileWatcher = null;
+    
+
+
     context.subscriptions.push(this);
   }
   
   public dispose() {
     this.testSrcWatcher?.dispose();
     this.settingsWatcher?.dispose();
+
+    this.testSrcFileWatcher?.dispose();
     this.cloveUI.dispose();
   }
 
@@ -49,7 +62,7 @@ export class CloveController {
     
     this.settingsWatcher = vscode.workspace.createFileSystemWatcher(settingsPath);
     this.settingsWatcher.onDidCreate(uri => this.onSettingsCreated(uri));
-    this.settingsWatcher.onDidChange(uri => this.settingsUpdateCooler.execute(uri, this.onSettingsChanged, this));
+    this.settingsWatcher.onDidChange(uri => this.settingsUpdateCooler.execute(this.onSettingsChanged, this, uri));
     this.settingsWatcher.onDidDelete(uri => this.onSettingsDeleted(uri));
   }
 
@@ -76,14 +89,31 @@ export class CloveController {
 
       await this.discoverSuites();
 
-      this.testSrcWatcher?.dispose();
+      this.testSrcFileWatcher?.dispose();
       const testSourcesUri = vscode.Uri.file(CloveFilesystem.workspacePath(this.settings.testSourcesPath));
-      //const pattern = new vscode.RelativePattern(vscode.workspace.workspaceFolders![0], 'src/**/*.c');
       const watchPattern = new vscode.RelativePattern(testSourcesUri, '**/*.{c,cpp}');
-      this.testSrcWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
-      this.testSrcWatcher.onDidCreate(uri => this.onTestFileCreated(uri));
-      this.testSrcWatcher.onDidChange(uri => this.testSrcUpdateCooler.execute(uri, this.onTestFileChanged, this));
-      this.testSrcWatcher.onDidDelete(uri => this.onTestFileDeleted(uri));
+      this.testSrcFileWatcher = new CloveFilesystemWatcher(watchPattern);
+      
+    
+      this.testSrcFileWatcher.onDidCreate(uri => console.log("File Created: " + uri.fsPath), this);
+      this.testSrcFileWatcher.onDidDelete(uri => console.log("File Deleted: " + uri.fsPath), this);
+      this.testSrcFileWatcher.onDidRename( (uri_old, uri_new) => {
+        console.log("File Renamed From: " + uri_old);
+        console.log("File Renamed To  : " + uri_new);
+      });
+      this.testSrcFileWatcher.onDidChange(uri => console.log("File Changed: " + uri.fsPath), this);
+
+      this.testSrcFileWatcher.onDidCreate(uri => this.onTestFileCreated(uri));
+      this.testSrcFileWatcher.onDidChange(uri => this.onTestFileChanged(uri));
+      this.testSrcFileWatcher.onDidDelete(uri => this.onTestFileDeleted(uri));
+      this.testSrcFileWatcher.onDidRename((uri_old, uri_new) => this.onTestFileRenamed(uri_old, uri_new));
+     
+      /*
+      //if ( fs.statSync(uri.fsPath).isDirectory() ) //FUNZIONA SOLO SUL CREATE.
+      const folderSrcWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
+      folderSrcWatcher.onDidCreate(uri => { console.log("DIR CREATED: " + uri.path); } );
+      folderSrcWatcher.onDidDelete(uri => {  console.log("DIR DELETED: " + uri.path); } );
+      */
     }
 
     //cloveUI.onLoad()
@@ -256,6 +286,15 @@ export class CloveController {
   public async onTestFileDeleted(uri : vscode.Uri) {
     this.suites.removeByUri(uri);
     this.cloveUI.removeSuiteItem(uri);
+  }
+
+  public async onTestFileRenamed(uri_old : vscode.Uri, uri_new : vscode.Uri) { 
+    //NOTE: Instead of Delete/Create, task can be optimized avoiding to delete the Test Cases
+    //      Basically: its necessary to create a new TestItem Suite (because uri is an ID)
+    //      And then re-attach TestItem children to the Suite
+    //      Finally update Suite object in SuiteCollection
+    this.onTestFileDeleted(uri_old); //if it was really async should do await
+    this.onTestFileCreated(uri_new);
   }
 
   //Cases: 
