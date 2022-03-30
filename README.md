@@ -1,14 +1,17 @@
 # CLove-Unit Testing Extension for VSCode
 
-The CLove-Unit extension adds Testing support for [clove-unit](https://github.com/fdefelici/clove-unit) testing library for C/C++ language.
+The CLove-Unit Extension adds a UI boost for [CLove-Unit](https://github.com/fdefelici/clove-unit) C/C++ testing library.
 
 ![Clove test run result](./sample/images/header.png)
 
+> Still don't know about [CLove-Unit](https://github.com/fdefelici/clove-unit) testing library?<br />
+> It's a Single Header Unit Testing library for C/C++ language, which make easy developer life. Give it a try! ;-)
+
 ## Extension Activation
 In order to activate the extension:
-1. handle a C/C++ testing project using `clove-unit` following the library development [guidelines and samples](https://github.com/fdefelici/clove-unit) in your workspace
-1. create in your workspace folder the extension configuration file `.vscode/clove_unit_settings.json` (see `Extension Configuration`)
-1. open the workspace folder with VSCode
+1. First, you need to handle a C/C++ testing project using `CLove-Unit` following the library development [guidelines and samples](https://github.com/fdefelici/clove-unit). (This UI Extension doesn't include CLove-Unit library)
+1. Then, create in your workspace the extension configuration file `.vscode/clove_unit_settings.json` (see `Extension Configuration`)
+1. Finally, open the workspace folder with VSCode (if you created the configuration within VSCode IDE, make sure to close and re-open it)
 
 ## Extension Configuration
 The extension needs the following configuration in the `.vscode/clove_unit_settings.json`
@@ -21,7 +24,7 @@ The extension needs the following configuration in the `.vscode/clove_unit_setti
 
 
 ## Extension Usage
-Here an example of project developed with `clove-unit` with related extension configuration.
+Here an example of project developed with `CLove-Unit` library and related UI Extension Configuration.
 
 > You can find this example project [here](./sample). 
 
@@ -35,7 +38,7 @@ bin/
 	test.exe (produced when launching tests - see Configuration)
 
 include/
-	clove_unit.h
+	clove-unit.h (the library, you must include it by yourself)
 
 src/
 	test1.c
