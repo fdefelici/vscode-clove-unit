@@ -33,4 +33,8 @@ export class CloveSuite {
     public hasTest(name : string) : boolean {
         return this.tests.includes(name);
     }
+
+    public hasBasePath(path : string) : boolean {
+        return this.suiteItem.uri!.fsPath.startsWith(path);
+    }
  }

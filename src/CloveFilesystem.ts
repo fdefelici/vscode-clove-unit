@@ -32,6 +32,10 @@ export class CloveFilesystem {
         return fs.existsSync(path);
     }
 
+    static pathConcat(...paths: string[]) : string {
+        return path.join(...paths);
+    }
+
     public static loadJsonFile(filePath: string) : any {
         try {
             const fileContents = fs.readFileSync(filePath);

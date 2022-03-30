@@ -34,7 +34,7 @@ export class CloveFilesystemWatcher {
     private changeHandlers : WatchHandler[];
     private deleteHandlers : WatchHandler[];
     private renameHandlers : WatchHandler[];
-    constructor(globPattern : vscode.GlobPattern ) {
+    constructor(globPattern : vscode.GlobPattern, private onlyFolderFilter = false) {
         this.renameElapsedTime = 100; //ms
         this.normalEventElapsed = 1000; //1s
         
@@ -96,6 +96,8 @@ export class CloveFilesystemWatcher {
     }
 
     private handleCreateEvent(uri: vscode.Uri) : void {
+        if (this.onlyFolderFilter && !this.isDirectory(uri) ) return;
+        
         this.lastCreateDate = new Date();
         this.lastCreateUri = uri;
 
@@ -107,6 +109,8 @@ export class CloveFilesystemWatcher {
     }
 
     private handleDeleteEvent(uri: vscode.Uri) : void {
+        if (this.onlyFolderFilter && !this.isDirectory(uri) ) return;
+
         const now = new Date();
 
         const millisDiff = now.getTime() - this.lastCreateDate.getTime();
@@ -120,5 +124,11 @@ export class CloveFilesystemWatcher {
 
     private handleChangeEvent(uri: vscode.Uri) {
         this.changeCooler.execute(() => this.changeHandlers.forEach( each => each.run(uri)) );
+    }
+
+    private isDirectory(uri : vscode.Uri) : boolean {
+        if (uri.path.endsWith(".c")) return false;
+        if (uri.path.endsWith(".cpp")) return false;
+        return true;
     }
 }
