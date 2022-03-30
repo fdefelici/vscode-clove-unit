@@ -5,21 +5,15 @@ import { CloveSuite } from './CloveSuite';
 import { CloveSuiteCollection } from './CloveSuiteCollection';
 import { CloveSettings } from './CloveSettings';
 import { CloveTestUI } from './CloveTestUI';
-import { CloveWatcherCooldownHandler } from './CloveCooldownHandler';
 import { CloveVersion } from './CloveVersion';
-//import { fstat } from 'fs';
-import * as fs from 'fs';
 import { CloveFilesystemWatcher } from './CloveFilesystemWatcher';
 
 export class CloveController {
   suites : CloveSuiteCollection;
   settings : CloveSettings;
   ctrl : vscode.TestController;
-  settingsWatcher: vscode.FileSystemWatcher | null;
+  settingsWatcher: CloveFilesystemWatcher | null;
   isSettingsUpdating: boolean;
-  settingsUpdateCooler: CloveWatcherCooldownHandler;
-  testSrcUpdateCooler: CloveWatcherCooldownHandler;
-
   testSrcFileWatcher : CloveFilesystemWatcher | null;
   testSrcFolderWatcher : CloveFilesystemWatcher | null;
 
@@ -30,11 +24,8 @@ export class CloveController {
     this.suites = new CloveSuiteCollection();
     this.settings = new CloveSettings({});
     this.isSettingsUpdating = false;
-    this.settingsUpdateCooler = new CloveWatcherCooldownHandler();
 
-    this.testSrcUpdateCooler = new CloveWatcherCooldownHandler();
     this.settingsWatcher = null;
-
     this.testSrcFileWatcher = null;
     this.testSrcFolderWatcher = null;
 
@@ -43,7 +34,6 @@ export class CloveController {
   
   public dispose() {
     this.settingsWatcher?.dispose();
-
     this.testSrcFileWatcher?.dispose();
     this.testSrcFolderWatcher?.dispose();
     this.cloveUI.dispose();
@@ -58,9 +48,9 @@ export class CloveController {
       this.reconfigure(settingsPath);
     } 
     
-    this.settingsWatcher = vscode.workspace.createFileSystemWatcher(settingsPath);
+    this.settingsWatcher = CloveFilesystem.createWatcher(settingsPath);
     this.settingsWatcher.onDidCreate(uri => this.onSettingsCreated(uri));
-    this.settingsWatcher.onDidChange(uri => this.settingsUpdateCooler.execute(this.onSettingsChanged, this, uri));
+    this.settingsWatcher.onDidChange(uri => this.onSettingsChanged(uri));
     this.settingsWatcher.onDidDelete(uri => this.onSettingsDeleted(uri));
   }
 
@@ -91,38 +81,26 @@ export class CloveController {
       
       this.testSrcFileWatcher?.dispose();
       const filesWatchPattern = new vscode.RelativePattern(testSourcesUri, '**/*.{c,cpp}');
-      this.testSrcFileWatcher = new CloveFilesystemWatcher(filesWatchPattern);
+      this.testSrcFileWatcher =CloveFilesystem.createWatcher(filesWatchPattern);
       this.testSrcFileWatcher.onDidCreate(uri => this.onTestFileCreated(uri));
       this.testSrcFileWatcher.onDidChange(uri => this.onTestFileChanged(uri));
       this.testSrcFileWatcher.onDidDelete(uri => this.onTestFileDeleted(uri));
       this.testSrcFileWatcher.onDidRename((uri_old, uri_new) => this.onTestFileRenamed(uri_old, uri_new));
+      //this.testSrcFileWatcher.onDidCreate(uri => console.log("File Created: " + uri.fsPath), this);
+      //this.testSrcFileWatcher.onDidDelete(uri => console.log("File Deleted: " + uri.fsPath), this);
+      //this.testSrcFileWatcher.onDidRename( (uri_old, uri_new) => { console.log("File Renamed From: " + uri_old); console.log("File Renamed To  : " + uri_new); });
+      //this.testSrcFileWatcher.onDidChange(uri => console.log("File Changed: " + uri.fsPath), this);
 
-      this.testSrcFileWatcher.onDidCreate(uri => console.log("File Created: " + uri.fsPath), this);
-      this.testSrcFileWatcher.onDidDelete(uri => console.log("File Deleted: " + uri.fsPath), this);
-      this.testSrcFileWatcher.onDidRename( (uri_old, uri_new) => { console.log("File Renamed From: " + uri_old); console.log("File Renamed To  : " + uri_new); });
-      this.testSrcFileWatcher.onDidChange(uri => console.log("File Changed: " + uri.fsPath), this);
-
-     
-      /*
-      //if ( fs.statSync(uri.fsPath).isDirectory() ) //FUNZIONA SOLO SUL CREATE.
-      const folderSrcWatcher = vscode.workspace.createFileSystemWatcher(watchPattern);
-      folderSrcWatcher.onDidCreate(uri => { console.log("DIR CREATED: " + uri.path); } );
-      folderSrcWatcher.onDidDelete(uri => {  console.log("DIR DELETED: " + uri.path); } );
-      this.testSrcFolderWatcher?.dispose();
-      */
+      //Folder Watcher useful for those cases:
+      //- If folder is deleted (contained files deleted don't trigger the File Watcher)
+      //- If folder is renamed (contained files moved don't trigger the File Watcher)
+      //NOTE: In case of folder copied with files insied, File Watcher is triggered for each file!
       const folderWatchPattern = new vscode.RelativePattern(testSourcesUri, '**/*');
       this.testSrcFolderWatcher = new CloveFilesystemWatcher(folderWatchPattern, true);
-      //this.testSrcFolderWatcher.onDidCreate(uri => console.log("Dir Created: " + uri.fsPath), this);
-      //this.testSrcFolderWatcher.onDidDelete(uri => console.log("Dir Deleted: " + uri.fsPath), this);
-      //this.testSrcFolderWatcher.onDidRename( (uri_old, uri_new) => { console.log("Dir Renamed From: " + uri_old); console.log("Dir Renamed To  : " + uri_new); });
-      //SE Cartella Eliminata, i file all'interno non vengono notificati
-      //Se Cartella viene copiata con file all'intero, allora viene notificato il file watcher per ogni singolo file
-
-      this.testSrcFolderWatcher.onDidDelete(uri => console.log("Dir Deleted: " + uri.fsPath));
-      this.testSrcFolderWatcher.onDidRename( (uri_old, uri_new) => { console.log("Dir Renamed From: " + uri_old); console.log("Dir Renamed To  : " + uri_new); });
-      
       this.testSrcFolderWatcher.onDidDelete(uri => this.onTestFolderDeleted(uri) );
       this.testSrcFolderWatcher.onDidRename( (uri_old, uri_new) => this.onTestFolderRenamed(uri_old, uri_new) );
+      //this.testSrcFolderWatcher.onDidDelete(uri => console.log("Dir Deleted: " + uri.fsPath));
+      //this.testSrcFolderWatcher.onDidRename( (uri_old, uri_new) => { console.log("Dir Renamed From: " + uri_old); console.log("Dir Renamed To  : " + uri_new); });
     }
     
 

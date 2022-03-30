@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { CloveWatcherCooldownHandler } from "./CloveCooldownHandler";
+import { CloveFilesystem } from "./CloveFilesystem";
 
 class WatchHandler {
     public trigDate : Date;
@@ -96,7 +97,7 @@ export class CloveFilesystemWatcher {
     }
 
     private handleCreateEvent(uri: vscode.Uri) : void {
-        if (this.onlyFolderFilter && !this.isDirectory(uri) ) return;
+        if (this.onlyFolderFilter && !CloveFilesystem.seemsDirPath(uri.fsPath)) return;
         
         this.lastCreateDate = new Date();
         this.lastCreateUri = uri;
@@ -109,7 +110,7 @@ export class CloveFilesystemWatcher {
     }
 
     private handleDeleteEvent(uri: vscode.Uri) : void {
-        if (this.onlyFolderFilter && !this.isDirectory(uri) ) return;
+        if (this.onlyFolderFilter && !CloveFilesystem.seemsDirPath(uri.fsPath)) return;
 
         const now = new Date();
 
@@ -124,11 +125,5 @@ export class CloveFilesystemWatcher {
 
     private handleChangeEvent(uri: vscode.Uri) {
         this.changeCooler.execute(() => this.changeHandlers.forEach( each => each.run(uri)) );
-    }
-
-    private isDirectory(uri : vscode.Uri) : boolean {
-        if (uri.path.endsWith(".c")) return false;
-        if (uri.path.endsWith(".cpp")) return false;
-        return true;
     }
 }
