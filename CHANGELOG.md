@@ -1,5 +1,12 @@
 # CLove-Unit Testing Extension for VSCode Changelog
 
+## v0.0.6: March 30, 2022
+### Feature
+* Added test discovery when renaming, copying, deleting folders that contains tests file
+* Added real selective test run using the new feature available in CLove-Unit library v2.2.4
+### Bug Fix
+* Improved test discovery when renaming test file
+
 ## v0.0.5: March 22, 2022
 ### Feature
 * added test discovery for .cpp files

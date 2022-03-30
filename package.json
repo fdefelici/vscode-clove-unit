@@ -2,7 +2,7 @@
 	"name": "vscode-clove-unit",
 	"displayName": "CLove-Unit",
 	"description": "Testing Extension for CLove-Unit unit testing library for C/C++",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"publisher": "fdefelici",
 	"author": {
 		"name": "Federico De Felici"
