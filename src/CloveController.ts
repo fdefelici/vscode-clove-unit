@@ -338,6 +338,7 @@ export class CloveController {
     //Could be: SuiteItem or TestCaseItem
     //const selectedItems =  request.include ?? this.ctrl.items;
     const selectedItems =  request.include ?? this.suites.asItems();
+    const isSelectiveRun = request.include ? true : false;
 
     const run = this.ctrl.createTestRun(request);
 
@@ -398,7 +399,23 @@ export class CloveController {
     //Run Tests
     let execCmdFailed = false;
     run.appendOutput("Execute Started ...");
-    await Executor.aexec(this.settings.testExecPath + " -r json -f vscode_clove_report.json", workspacePath)
+    let includeOpts = "";
+    if (isSelectiveRun) {
+      selectedItems.forEach( item => {
+        if (includeOpts.length > 0) includeOpts += " ";
+        includeOpts += "-i ";
+        if (item.parent) { //Test
+          const suiteName = item.parent.label;
+          const testName = item.label;
+          includeOpts += `${suiteName}.${testName}`;
+        } else { //Suite
+          const suiteName = item.label;
+          includeOpts += `${suiteName}`;
+        }
+      });
+    }
+    const runCmd = `${this.settings.testExecPath} -r json -f vscode_clove_report.json ${includeOpts}`;
+    await Executor.aexec(runCmd, workspacePath)
       .catch(err => {
         execCmdFailed = true;
         const msg = `Error executing tests at: ${this.settings.testExecPath}`; 
