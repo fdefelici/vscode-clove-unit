@@ -409,7 +409,7 @@ export class CloveController {
     }
 
     //Update Test Results
-    const reportPath = CloveFilesystem.workspacePath(this.settings.testExecBasePath, "vscode_clove_report.json");
+    const reportPath = CloveFilesystem.ifRelativeConvertToWorkspaceAbsPath(this.settings.testExecBasePath, "vscode_clove_report.json");
     const reportJson = CloveFilesystem.loadJsonFile(reportPath);
     
     if (reportJson.api_version != 1) { //Supported json report version
