@@ -2,19 +2,22 @@ import { timeStamp } from 'console';
 import * as path from 'path';
 import { GlobPattern } from 'vscode';
 import { CloveVersion } from './CloveVersion';
-
+import { CloveFilesystem } from './CloveFilesystem';
 export class CloveSettings {
     public readonly testSourcesPath : string
     public readonly buildCommand : string | null;
     public readonly testExecPath : string;
-    
+
     public readonly testExecBasePath : string;
+    public readonly testExecAbsPath : string;
+    public readonly testSourcesAbsPath : string
+    public readonly reportAbsPath : string;
     
     public readonly srcSuiteMarker: string;
     public readonly srcSuiteRegex: RegExp;
     public readonly srcTestMarker: string;
     public readonly srcTestRegex: RegExp;
-    public readonly testProjectFileGlob: GlobPattern;
+    public readonly testFilesWsRelGlob: GlobPattern;
 
     public readonly supportedCloveVersion: CloveVersion;
     
@@ -37,7 +40,11 @@ export class CloveSettings {
 
         this.testExecBasePath = path.dirname(this.testExecPath);
 
-        this.testProjectFileGlob = this.testSourcesPath + "/**/*.{c,cpp}";
+        
+        this.testExecAbsPath = CloveFilesystem.ifRelativeConvertToWorkspaceAbsPath(this.testExecPath);
+        this.reportAbsPath = CloveFilesystem.ifRelativeConvertToWorkspaceAbsPath(this.testExecBasePath, "vscode_clove_report.json");
+        this.testSourcesAbsPath = CloveFilesystem.ifRelativeConvertToWorkspaceAbsPath(this.testSourcesPath);
+        this.testFilesWsRelGlob = CloveFilesystem.workspacePathRelative(this.testSourcesAbsPath) + "/**/*.{c,cpp}";
 
         this.srcSuiteMarker = "CLOVE_SUITE_NAME";
         this.srcSuiteRegex = /CLOVE_SUITE_NAME ([a-zA-Z0-9_]*)$/m;

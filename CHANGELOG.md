@@ -1,5 +1,11 @@
 # CLove-Unit Testing Extension for VSCode Changelog
 
+## v0.0.7: March 31, 2022
+### Refactoring
+* Improved internal file path management 
+### Bug Fix
+* Fixed test command execution on Unix Platform
+
 ## v0.0.6: March 30, 2022
 ### Feature
 * Added test discovery when renaming, copying, deleting folders that contains tests file
