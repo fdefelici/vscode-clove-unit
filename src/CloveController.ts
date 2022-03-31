@@ -53,7 +53,7 @@ export class CloveController {
     this.settingsWatcher.onDidChange(uri => this.onSettingsChanged(uri));
     this.settingsWatcher.onDidDelete(uri => this.onSettingsDeleted(uri));
   }
-
+  //TODO: Improve error message in case of malformed settings file
   private async reconfigure(settingPath: string) { 
     const configJson = CloveFilesystem.loadJsonFile(settingPath);
     if (!configJson) {
@@ -67,17 +67,17 @@ export class CloveController {
       return;
     }
 
-    const prevTestSrcPath = this.settings.isValid() ? this.settings.testSourcesPath : null;
+    const prevTestSrcPath = this.settings.isValid() ? this.settings.testSourcesAbsPath : null;
 
     this.settings = newSettings;
     
-    if ( this.settings.testSourcesPath != prevTestSrcPath) {
+    if ( this.settings.testSourcesAbsPath != prevTestSrcPath) {
       this.cloveUI.clear();
       this.suites.clear();
 
       await this.discoverSuites();
 
-      const testSourcesUri = vscode.Uri.file(CloveFilesystem.workspacePath(this.settings.testSourcesPath));
+      const testSourcesUri = vscode.Uri.file(this.settings.testSourcesAbsPath);
       
       this.testSrcFileWatcher?.dispose();
       const filesWatchPattern = new vscode.RelativePattern(testSourcesUri, '**/*.{c,cpp}');
@@ -148,7 +148,7 @@ export class CloveController {
   }
   
   public async discoverSuites() {
-    for (const uri of await vscode.workspace.findFiles(this.settings.testProjectFileGlob)) {
+    for (const uri of await vscode.workspace.findFiles(this.settings.testFilesWsRelGlob)) {
       if (this.suites.hasSuiteByUri(uri)) continue; //suite already discovered
 
       const [isSuite, name, text] = await this._parseTestSuite(uri);
@@ -177,7 +177,7 @@ export class CloveController {
       return undefined;
     }
     const textLines = text.split("\n"); //To use to find line numbers
-    const desc = CloveFilesystem.workspacePathRelative(uri.path);
+    const desc = CloveFilesystem.workspacePathRelative(uri.fsPath);
     const suiteItem = this.cloveUI.addSuiteItem(uri, name, desc, textLines.length, text.length);
 
     const suite = new CloveSuite(suiteItem);
@@ -351,7 +351,8 @@ export class CloveController {
 
     //Check if VSCode CLove-Unit extension is compatible with clove-unit.h used in the test project
     let checkCmdFaild = false;
-    const cloveVersion = await Executor.aexec(this.settings.testExecPath + " -v", workspacePath)
+    const versionCmd = `"${this.settings.testExecAbsPath}" -v`;
+    const cloveVersion = await Executor.aexec(versionCmd, workspacePath)
       .catch((err : Error) => {
         checkCmdFaild = true;
         //const msg = `Error executing test binary at: ${this.settings.testExecPath}`; 
@@ -392,11 +393,12 @@ export class CloveController {
         }
       });
     }
-    const runCmd = `${this.settings.testExecPath} -r json -f vscode_clove_report.json ${includeOpts}`;
+    
+    const runCmd = `"${this.settings.testExecAbsPath}" -r json -f "${this.settings.reportAbsPath}" ${includeOpts}`;
     await Executor.aexec(runCmd, workspacePath)
       .catch(err => {
         execCmdFailed = true;
-        const msg = `Error executing tests at: ${this.settings.testExecPath}`; 
+        const msg = `Error executing tests at: ${this.settings.testExecAbsPath}`; 
         run.appendOutput(msg);
         run.appendOutput(err.message);
         vscode.window.showErrorMessage(err.message);
@@ -409,8 +411,9 @@ export class CloveController {
     }
 
     //Update Test Results
-    const reportPath = CloveFilesystem.ifRelativeConvertToWorkspaceAbsPath(this.settings.testExecBasePath, "vscode_clove_report.json");
+    const reportPath = this.settings.reportAbsPath;
     const reportJson = CloveFilesystem.loadJsonFile(reportPath);
+    //TODO: check if reportJson null;
     
     if (reportJson.api_version != 1) { //Supported json report version
       this.cloveUI.showError(`This Clove Unit VSCode Extension doesn't support clove_unit v${reportJson.clove_version}. Try to update to latest clove-unit.h!`);

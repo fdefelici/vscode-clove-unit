@@ -21,20 +21,15 @@ export class CloveFilesystem {
     }
 
     //given a workspace absolute path, return a workspace relative subpath
-    public static workspacePathRelative(...paths: string[]) : string {
-        let workspacePath = "";
-        if (vscode.workspace.workspaceFolders !== undefined) {
-          workspacePath = vscode.workspace.workspaceFolders[0].uri.fsPath; 
-        }
-        const fullPath = path.join(...paths);
-        const startIndex = fullPath.indexOf(workspacePath) + workspacePath.length + 1;
-        const result = fullPath.substring(startIndex);
-        return result;
+    public static workspacePathRelative(first : string, ...others: string[]) : string {
+        const fullPath = path.join(first, ...others);
+        if (!path.isAbsolute(fullPath)) return fullPath;
+        return vscode.workspace.asRelativePath(fullPath);
     }
 
-    public static ifRelativeConvertToWorkspaceAbsPath(...paths: string[]) : string {
-        if (path.isAbsolute(paths[0])) return path.join(...paths);
-        return CloveFilesystem.workspacePath(...paths);
+    public static ifRelativeConvertToWorkspaceAbsPath(first: string, ...others: string[]) : string {
+        if (path.isAbsolute(first)) return path.join(first, ...others);
+        return CloveFilesystem.workspacePath(first, ...others);
     }
 
     static pathExists(path: string) : boolean {
