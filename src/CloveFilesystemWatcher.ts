@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { CloveWatcherCooldownHandler } from "./CloveCooldownHandler";
+import { CloveCooldownHandler } from "./CloveCooldownHandler";
 import { CloveFilesystem } from "./CloveFilesystem";
 
 class WatchHandler {
@@ -29,7 +29,7 @@ export class CloveFilesystemWatcher {
 
     private watcher : vscode.FileSystemWatcher;
 
-    private changeCooler: CloveWatcherCooldownHandler;
+    private changeCooler: CloveCooldownHandler;
 
     private createHandlers : WatchHandler[];
     private changeHandlers : WatchHandler[];
@@ -42,7 +42,7 @@ export class CloveFilesystemWatcher {
         this.lastCreateDate = new Date();
         this.lastCreateUri = null;
         this.lastTimeoutId = null;
-        this.changeCooler = new CloveWatcherCooldownHandler();
+        this.changeCooler = new CloveCooldownHandler();
 
         this.createHandlers = [];
         this.changeHandlers = [];

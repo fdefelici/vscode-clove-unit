@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 //Event can be triggered multiple time with just pressing CTRL+S 
 //so this class help to introduce a cooldown between repeated calls
-export class CloveWatcherCooldownHandler {
+export class CloveCooldownHandler {
 
     private last : Date;
     private coolMillis : number;

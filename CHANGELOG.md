@@ -1,5 +1,9 @@
 # CLove-Unit Testing Extension for VSCode Changelog
 
+## v0.0.8: March 31, 2022
+### Bug Fix
+* A dirty typescript compilation produced a package not working for linux
+
 ## v0.0.7: March 31, 2022
 ### Refactoring
 * Improved internal file path management 
