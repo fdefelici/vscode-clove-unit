@@ -3,6 +3,7 @@
 ## v1.0.0: September 24, 2022
 ### Feature
 * Update for clove-unit v2.3.0 (now this extension support only clove-unit v2.3.X)
+* buildCommand configuration is optional (see Readme)
 ---
 ## v0.0.8: March 31, 2022
 ### Bug Fix
