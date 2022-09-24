@@ -340,13 +340,24 @@ export class CloveController {
     //Build Tests
     const workspacePath = CloveFilesystem.workspacePath();
     if (this.settings.buildCommand) {
-      run.appendOutput("Build Started ...");
+      run.appendOutput("Build Started ...\n");
       await Executor.aexec(this.settings.buildCommand, workspacePath)
         .catch(err => {
           run.appendOutput(err.message);
           vscode.window.showErrorMessage(err.message); 
         }); 
-      run.appendOutput("Build Finished!");
+      run.appendOutput("Build Finished!\n");
+    } else {
+      run.appendOutput("Build Test binary skipped! No buildCommand config found!\n");
+    }
+
+
+    //Check if Test Binary exists
+    if (!CloveFilesystem.pathExists(this.settings.testExecAbsPath)) {
+      run.appendOutput(`Test Binary not found: ${this.settings.testExecAbsPath}\n`);
+      vscode.window.showErrorMessage(`Test Binary not found: ${this.settings.testExecAbsPath}. Please check this extension config or your build settings.`);
+      run.end();
+      return;
     }
 
     //Check if VSCode CLove-Unit extension is compatible with clove-unit.h used in the test project
@@ -359,11 +370,15 @@ export class CloveController {
         //console.log(err.message);
         vscode.window.showErrorMessage(err.message);
     }); 
-    if (checkCmdFaild) return;
+    if (checkCmdFaild) {
+      run.end();
+      return;
+    }
 
     const semVerFound = CloveVersion.fromSemVerString(cloveVersion!);
     if (!semVerFound) {
       vscode.window.showErrorMessage("Impossible to retrieve clove-unit.h version!");
+      run.end();
       return;
     }    
 
@@ -371,13 +386,14 @@ export class CloveController {
     if (!isCompatible) {
       const supported = this.settings.supportedCloveVersion.asMinorString();
       vscode.window.showErrorMessage(`CLove-Unit VSCode Extension is compatible with clove-unit.h v${supported}. 
-          Currently clove-unit.h v${cloveVersion} has been detected! Please updated to a supported version!`);
+          Currently clove-unit.h v${cloveVersion} has been detected! Please update this extension (if any) or use a compatible clove-unit.h!`);
+      run.end();
       return;
     }
 
     //Run Tests
     let execCmdFailed = false;
-    run.appendOutput("Execute Started ...");
+    run.appendOutput("Execute Started ...\n");
     let includeOpts = "";
     if (isSelectiveRun) {
       selectedItems.forEach( item => {
@@ -394,16 +410,16 @@ export class CloveController {
       });
     }
     
-    const runCmd = `"${this.settings.testExecAbsPath}" -r json -f "${this.settings.reportAbsPath}" ${includeOpts}`;
+    const runCmd = `"${this.settings.testExecAbsPath}" -r json -o "${this.settings.reportAbsPath}" ${includeOpts}`;
     await Executor.aexec(runCmd, workspacePath)
       .catch(err => {
         execCmdFailed = true;
-        const msg = `Error executing tests at: ${this.settings.testExecAbsPath}`; 
+        const msg = `Error executing tests at: ${this.settings.testExecAbsPath}\n`; 
         run.appendOutput(msg);
-        run.appendOutput(err.message);
+        run.appendOutput(err.message + "\n");
         vscode.window.showErrorMessage(err.message);
       }); 
-    run.appendOutput("Execute Finished!");
+    run.appendOutput("Execute Finished!\n");
 
     if (execCmdFailed) {
       run.end();
@@ -415,11 +431,13 @@ export class CloveController {
     const reportJson = CloveFilesystem.loadJsonFile(reportPath);
     //TODO: check if reportJson null;
     
-    if (reportJson.api_version != 1) { //Supported json report version
+    /* Tried to remove json_schema check because already check the minor version of clove-unit at the beginning
+    if (reportJson.json_schema != "1") { //Supported json report version
       this.cloveUI.showError(`This Clove Unit VSCode Extension doesn't support clove_unit v${reportJson.clove_version}. Try to update to latest clove-unit.h!`);
       run.end();
       return;
     }
+    */
 
     const resultJson = reportJson.result;
   
@@ -451,7 +469,7 @@ export class CloveController {
         run.started(testItem);
 
         const testName = testItem.label;
-        const report_test = reportSuite[testName];
+        const report_test = reportSuite.tests[testName];
         if (!report_test) {
           run.skipped(testItem);
           this.cloveUI.showError(`Test method not found in the test binary: ${testName}`);
@@ -460,13 +478,13 @@ export class CloveController {
         const testStatus = report_test.status;
         let duration = report_test.duration / 1000000; //1 Millinon nanos per ms
         if (duration > 0 && duration < 1 ) duration = 0.1; //minimu Test Explorer time resolution is 0.1 ms
-        if (testStatus == 1) { //1 = Passed
+        if (testStatus == "PASS") {
           run.passed(testItem, duration);
-        } else if (testStatus == 2) { //2 = Failed
+        } else if (testStatus == "FAIL") {
           let assertMsg;
           let exp = report_test.expected;
           let act = report_test.actual;
-          if (report_test.type == 11) { //Data Type = String
+          if (report_test.type == "STRING") { 
             const exp_init_len = exp.length; 
             const act_init_len = act.length;
             exp = exp.substring(0,  exp_init_len > 16 ? 16 : exp.length);
@@ -479,9 +497,9 @@ export class CloveController {
             if (act_init_len > 16) act += "...";
           }
           switch(report_test.assert) {
-            case 1: { assertMsg = `expected [${exp}] but was [${act}]`;  break; }
-            case 2: { assertMsg = `not expected [${exp}] but was [${act}]`;  break; }
-            case 3: { assertMsg = `a fail assertion has been met!`;  break; }
+            case "EQ": { assertMsg = `expected [${exp}] but was [${act}]`;  break; }
+            case "NE": { assertMsg = `not expected [${exp}] but was [${act}]`;  break; }
+            case "FAIL": { assertMsg = `a fail assertion has been met!`;  break; }
             default: { assertMsg = "<undefined>";  break; }
           }
           //TODO: Use Markdown string in assert Msg to highlight value boundaries
@@ -489,7 +507,7 @@ export class CloveController {
           const zeroBasedLine = report_test.line - 1;
           message.location = new vscode.Location(testItem.uri!, new vscode.Range(zeroBasedLine, 0, zeroBasedLine, 1));
           run.failed(testItem, message, duration);
-        } else if (testStatus == 3) { //3 = Skipped
+        } else if (testStatus == "SKIP") {
           run.skipped(testItem);
         }
       });

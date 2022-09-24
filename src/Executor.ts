@@ -13,9 +13,7 @@ export class Executor {
         return new Promise<string>( (resolve, reject) => {
             Executor.exec(command, cwd, (err: ExecException | null, stdout: string) => {
                 if (err) {
-                    //TODO: Temporary check because clove-unit v2.2.3 return 1 if test execution has some failure.
-                    if (err.code == 1) resolve(stdout);
-                    else reject(new Error(`Failing executing command: "${command}" at cwd: "${cwd}" with exit code (${err.code})`));
+                    reject(new Error(`Failing executing command: "${command}" at cwd: "${cwd}" with exit code (${err.code})`));
                 }
                 else {
                     resolve(stdout);
