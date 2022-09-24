@@ -1,5 +1,7 @@
 # CLove-Unit Testing Extension for VSCode
 
+[![version](https://img.shields.io/visual-studio-marketplace/v/fdefelici.vscode-clove-unit?color=blue&label=latest)](https://marketplace.visualstudio.com/items?itemName=fdefelici.vscode-clove-unit) [![install](https://img.shields.io/visual-studio-marketplace/i/fdefelici.vscode-clove-unit?color=light-green)](https://marketplace.visualstudio.com/items?itemName=fdefelici.vscode-clove-unit)
+
 The CLove-Unit Extension adds a UI boost for [CLove-Unit](https://github.com/fdefelici/clove-unit) C/C++ testing library.
 
 ![Clove test run result](./sample/images/header.png)
@@ -21,7 +23,6 @@ The extension needs the following configuration in the `.vscode/clove_unit_setti
 | `testSourcesPath` | Workspace relative path to test sources |
 | `buildCommand` | A shell command to build a test executable |
 | `testExecPath` | The path to the test executable |
-
 
 ## Extension Usage
 Here an example of project developed with `CLove-Unit` library and related UI Extension Configuration.
