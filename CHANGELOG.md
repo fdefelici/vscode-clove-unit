@@ -4,6 +4,9 @@
 ### Feature
 * Update for clove-unit v2.3.0 (now this extension support only clove-unit v2.3.X)
 * buildCommand configuration is optional (see Readme)
+* Improved test binary detection, reporting a specific message to the user if not found
+### Documentation
+* Updated Readme for buildCommand configuration
 ---
 ## v0.0.8: March 31, 2022
 ### Bug Fix
