@@ -51,7 +51,7 @@ export class CloveSettings {
         this.srcTestMarker = "CLOVE_TEST";
         this.srcTestRegex = /CLOVE_TEST\((\w.*)\)/gm;
 
-        this.supportedCloveVersion = new CloveVersion(2, 2, 1);
+        this.supportedCloveVersion = new CloveVersion(2, 3, 0);
     }
 
     public isValid() : boolean {
