@@ -351,6 +351,15 @@ export class CloveController {
       run.appendOutput("Build Test binary skipped! No buildCommand config found!\n");
     }
 
+
+    //Check if Test Binary exists
+    if (!CloveFilesystem.pathExists(this.settings.testExecAbsPath)) {
+      run.appendOutput(`Test Binary not found: ${this.settings.testExecAbsPath}\n`);
+      vscode.window.showErrorMessage(`Test Binary not found: ${this.settings.testExecAbsPath}. Please check this extension config or your build settings.`);
+      run.end();
+      return;
+    }
+
     //Check if VSCode CLove-Unit extension is compatible with clove-unit.h used in the test project
     let checkCmdFaild = false;
     const versionCmd = `"${this.settings.testExecAbsPath}" -v`;
@@ -361,11 +370,15 @@ export class CloveController {
         //console.log(err.message);
         vscode.window.showErrorMessage(err.message);
     }); 
-    if (checkCmdFaild) return;
+    if (checkCmdFaild) {
+      run.end();
+      return;
+    }
 
     const semVerFound = CloveVersion.fromSemVerString(cloveVersion!);
     if (!semVerFound) {
       vscode.window.showErrorMessage("Impossible to retrieve clove-unit.h version!");
+      run.end();
       return;
     }    
 
@@ -374,6 +387,7 @@ export class CloveController {
       const supported = this.settings.supportedCloveVersion.asMinorString();
       vscode.window.showErrorMessage(`CLove-Unit VSCode Extension is compatible with clove-unit.h v${supported}. 
           Currently clove-unit.h v${cloveVersion} has been detected! Please update this extension (if any) or use a compatible clove-unit.h!`);
+      run.end();
       return;
     }
 
