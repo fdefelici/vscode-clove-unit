@@ -371,7 +371,7 @@ export class CloveController {
     if (!isCompatible) {
       const supported = this.settings.supportedCloveVersion.asMinorString();
       vscode.window.showErrorMessage(`CLove-Unit VSCode Extension is compatible with clove-unit.h v${supported}. 
-          Currently clove-unit.h v${cloveVersion} has been detected! Please updated to a supported version!`);
+          Currently clove-unit.h v${cloveVersion} has been detected! Please update this extension (if any) or use a compatible clove-unit.h!`);
       return;
     }
 
