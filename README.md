@@ -21,7 +21,7 @@ The extension needs the following configuration in the `.vscode/clove_unit_setti
 |Property|Description|
 |--------|-----------|
 | `testSourcesPath` | Workspace relative path to test sources |
-| `buildCommand` | A shell command to build a test executable |
+| `buildCommand` | A shell command to build a test executable (OPTIONAL) |
 | `testExecPath` | The path to the test executable |
 
 ## Extension Usage
@@ -57,7 +57,7 @@ src/
     "testExecPath" : "bin\\test.exe"
 }
 ```
-> NOTE: You can use your own configuration and preferred build command. 
+> NOTE: You can use your own configuration and preferred build command. In case, test project build is already managed by your IDE (or by other extensions) you can skip `buildCommand` configuration (either by removing the attribute or by configuring as an empty string).
 
 ### Test UI:
 Test UI will appear like this:

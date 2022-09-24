@@ -5,7 +5,7 @@ import { CloveVersion } from './CloveVersion';
 import { CloveFilesystem } from './CloveFilesystem';
 export class CloveSettings {
     public readonly testSourcesPath : string
-    public readonly buildCommand : string | null;
+    public readonly buildCommand : string;
     public readonly testExecPath : string;
 
     public readonly testExecBasePath : string;
@@ -35,7 +35,7 @@ export class CloveSettings {
         }
         
         this.testSourcesPath = testPrjPath ?? "";
-        this.buildCommand = buldCommand ?? null;
+        this.buildCommand = buldCommand ?? ""; //buildCommand is optional. NOTE: "" (empty string) is evaluated false within conditional
         this.testExecPath = testExecPath ?? "";
 
         this.testExecBasePath = path.dirname(this.testExecPath);

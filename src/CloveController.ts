@@ -340,13 +340,15 @@ export class CloveController {
     //Build Tests
     const workspacePath = CloveFilesystem.workspacePath();
     if (this.settings.buildCommand) {
-      run.appendOutput("Build Started ...");
+      run.appendOutput("Build Started ...\n");
       await Executor.aexec(this.settings.buildCommand, workspacePath)
         .catch(err => {
           run.appendOutput(err.message);
           vscode.window.showErrorMessage(err.message); 
         }); 
-      run.appendOutput("Build Finished!");
+      run.appendOutput("Build Finished!\n");
+    } else {
+      run.appendOutput("Build Test binary skipped! No buildCommand config found!\n");
     }
 
     //Check if VSCode CLove-Unit extension is compatible with clove-unit.h used in the test project
