@@ -12,5 +12,9 @@ CLOVE_TEST(SecondTest) {
     CLOVE_IS_TRUE(true);
 }
 
+CLOVE_TEST(ThirdTest) {
+    CLOVE_SIZET_GT(1, 2);
+}
+
 
 

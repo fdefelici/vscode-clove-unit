@@ -385,7 +385,7 @@ export class CloveController {
     const isCompatible = this.settings.supportedCloveVersion.hasSameMinor(semVerFound);
     if (!isCompatible) {
       const supported = this.settings.supportedCloveVersion.asMinorString();
-      vscode.window.showErrorMessage(`CLove-Unit VSCode Extension is compatible with clove-unit.h v${supported}. 
+      vscode.window.showErrorMessage(`CLove-Unit VSCode Extension requires clove-unit.h v${supported}. 
           Currently clove-unit.h v${cloveVersion} has been detected! Please update this extension (if any) or use a compatible clove-unit.h!`);
       run.end();
       return;
@@ -499,6 +499,10 @@ export class CloveController {
           switch(report_test.assert) {
             case "EQ": { assertMsg = `expected [${exp}] but was [${act}]`;  break; }
             case "NE": { assertMsg = `not expected [${exp}] but was [${act}]`;  break; }
+            case "GT": { assertMsg = `expected [${exp} > ${act}] but wasn't`;  break; }
+            case "GTE": { assertMsg = `expected [${exp} >= ${act}] but wasn't`;  break; }
+            case "LT": { assertMsg = `expected [${exp} < ${act}] but wasn't`;  break; }
+            case "LTE": { assertMsg = `expected [${exp} <= ${act}] but wasn't`;  break; }
             case "FAIL": { assertMsg = `a fail assertion has been met!`;  break; }
             default: { assertMsg = "<undefined>";  break; }
           }
