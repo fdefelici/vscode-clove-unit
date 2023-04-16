@@ -1,5 +1,7 @@
 # CLove-Unit Testing Extension for VSCode Changelog
-
+## v1.1.0: April 04, 2023
+### Feature
+* Update for clove-unit v2.4.0 (now this extension support only clove-unit v2.4.X)
 ## v1.0.0: September 24, 2022
 ### Feature
 * Update for clove-unit v2.3.0 (now this extension support only clove-unit v2.3.X)
